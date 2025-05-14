@@ -5,13 +5,35 @@ import ifcopenshell
 from assembly_viewer import AssemblyViewerWindow
 
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QTreeView, QListView, QHBoxLayout, QVBoxLayout, QWidget,
+    QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget,
     QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView,
 )
 from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSortFilterProxyModel, QAbstractTableModel
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
+
+class EntityViewModel(QAbstractTableModel):
+    def __init__(self, data):
+        super().__init__()
+        self.data = data
+        self.headers = ["STEP ID", "Type", "GUID", "Name"]
+
+    def rowCount(self, parent=None):
+        return len(self.data)
+
+    def columnCount(self, parent=None):
+        return len(self._data[0]) if self._data else 0
+
+    def data(self, index, role):
+        if role == Qt.DisplayRole:
+            return str(self.data[index.row()][index.column()])
+        return None
+
+    def headerData(self, section, orientation, role):
+        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+            return self.headers[section]
+        return None
 
 class IfcTreeViewer(QMainWindow):
     def __init__(self, ifc_file=None):
@@ -23,9 +45,21 @@ class IfcTreeViewer(QMainWindow):
         self.max_recent_files = 5
         self.recent_files = self.load_recent_files()
 
-        self.middle_view = QListView()
-        self.middle_model = QStandardItemModel()
+        self.middle_model = EntityViewModel(self.model)
+        # setup a proxy model for sorting
+        self.proxy_model = QSortFilterProxyModel()
+        self.proxy_model.setSourceModel(self.model)
+
+        # sorting behavior
+        self.proxy_model.setSortRole(Qt.DisplayRole)
+
+        self.middle_view = QTableView()
+        self.middle_view.setModel(self.proxy_model)
         self.middle_view.setModel(self.middle_model)
+        self.middle_view.setSortingEnabled(True)
+        self.middle_view.resizeColumnsToContents()
+        self.middle_view.horizontalHeader().setStretchLastSection(True)
+        self.middle_view.verticalHeader().setVisible(False)
 
         self.left_view = QTreeView()
         self.left_model = QStandardItemModel()
@@ -74,8 +108,6 @@ class IfcTreeViewer(QMainWindow):
         # it is a tuple containing the corresponding model and index
         self.highlighted_item = None
 
-        if ifc_file:
-            self.load_ifc(ifc_file)
 
     def add_toolbar(self):
         toolbar = QToolBar("Main Toolbar")
@@ -108,11 +140,19 @@ class IfcTreeViewer(QMainWindow):
         self.search_button.clicked.connect(self.filter_middle)
 
     def load_entities(self):
+        self.middle_model.clear()
+        self.middle_model.setHorizontalHeaderLabels(["STEP ID", "Type", "GUID", "Name"])
+
         sorted_entities = sorted(self.model, key=lambda e: e.id())
         for entity in sorted_entities:
-            item = QStandardItem(self.create_entity_label(entity))
-            item.setData(entity)
-            self.middle_model.appendRow(item)
+            row = [
+                QStandardItem(entity.id()).setData(entity.id()),
+                QStandardItem(entity.is_a()),
+                QStandardItem(getattr(entity, "GlobalId", "None")),
+                QStandardItem(getattr(entity, "Name", "None")),
+            ]
+            row[0].setData(entity)  # store the full entity in each cell
+            self.middle_model.appendRow(row)
 
     def filter_middle(self):
         search_text = self.search_bar.text().lower()
@@ -190,22 +230,21 @@ class IfcTreeViewer(QMainWindow):
 
     def handle_entity_selection(self, index):
         sender = self.sender()
-        item = sender.model().itemFromIndex(index)
-        if not item:
-            return
 
-        entity = item.data()
+        entity = index.siblingAtColumn(0).data()
+
         if not entity:
+            print("ERROR SELECTING ENTITY")
             return
 
         if sender == self.middle_view.selectionModel():
             # unhighlight the previously selected item and highlight the new one
-            self.highlight_selected_item(sender.model(), index)
+            self.highlight_selected_item(self.middle_model, index)
             # Update the left and right views
             self.populate_left_view(entity)
             self.populate_right_view(entity)
         elif sender == self.left_view.selectionModel():
-            self.highlight_selected_item(sender.model(), index)
+            self.highlight_selected_item(self.left_model, index)
             # Update the right view
             self.populate_right_view(entity)
 
