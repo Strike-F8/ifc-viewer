@@ -34,6 +34,22 @@ class EntityViewModel(QAbstractTableModel):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
             return self.headers[section]
         return None
+    
+    def clear(self):
+        self.beginResetModel()
+        self._data = []
+        self.endResetModel()
+    # TODO: IMPLEMENT THIS
+    def populate_assemblies(self):
+        for mark, entities in self.assemblies.items():
+            for entity in entities:
+                info = entity.get_info()
+                step_id = "#" + str(entity.id())
+                global_id = info.get("GlobalId", "")
+                name = info.get("Name", "")
+                ifc_type = entity.is_a()
+                self.data_list.append([step_id, mark, global_id, name, ifc_type, entity])
+
 
 class IfcTreeViewer(QMainWindow):
     def __init__(self, ifc_file=None):
@@ -55,7 +71,6 @@ class IfcTreeViewer(QMainWindow):
 
         self.middle_view = QTableView()
         self.middle_view.setModel(self.proxy_model)
-        self.middle_view.setModel(self.middle_model)
         self.middle_view.setSortingEnabled(True)
         self.middle_view.resizeColumnsToContents()
         self.middle_view.horizontalHeader().setStretchLastSection(True)
@@ -141,7 +156,6 @@ class IfcTreeViewer(QMainWindow):
 
     def load_entities(self):
         self.middle_model.clear()
-        self.middle_model.setHorizontalHeaderLabels(["STEP ID", "Type", "GUID", "Name"])
 
         sorted_entities = sorted(self.model, key=lambda e: e.id())
         for entity in sorted_entities:
@@ -151,7 +165,7 @@ class IfcTreeViewer(QMainWindow):
                 QStandardItem(getattr(entity, "GlobalId", "None")),
                 QStandardItem(getattr(entity, "Name", "None")),
             ]
-            row[0].setData(entity)  # store the full entity in each cell
+            row[1].setData(entity)  # store the full entity in each cell
             self.middle_model.appendRow(row)
 
     def filter_middle(self):
