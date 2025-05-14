@@ -82,7 +82,9 @@ class IfcTreeViewer(QMainWindow):
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
 
         toolbar.addAction(QAction("Open File", self, triggered=self.open_ifc_file))
-        toolbar.addAction(QAction("Find Assemblies", self, triggered=self.show_assemblies_window))
+        toolbar.addAction(QAction("Display Entities", self, triggered=self.load_entities)) # Large files take a long time 
+                                                                                        # so only load entities when the user clicks the button
+        toolbar.addAction(QAction("Assembly Exporter", self, triggered=self.show_assemblies_window))
 
     def add_file_menu(self):
         self.menubar = self.menuBar()
@@ -105,6 +107,13 @@ class IfcTreeViewer(QMainWindow):
         self.search_button.setText("Filter")
         self.search_button.clicked.connect(self.filter_middle)
 
+    def load_entities(self):
+        sorted_entities = sorted(self.model, key=lambda e: e.id())
+        for entity in sorted_entities:
+            item = QStandardItem(self.create_entity_label(entity))
+            item.setData(entity)
+            self.middle_model.appendRow(item)
+
     def filter_middle(self):
         search_text = self.search_bar.text().lower()
         for i in range(self.middle_model.rowCount()):
@@ -114,6 +123,7 @@ class IfcTreeViewer(QMainWindow):
 
     def load_ifc(self, file_path):
         self.unhighlight_selected_item()
+        self.setWindowTitle(file_path)
         try:
             self.model = ifcopenshell.open(file_path)
             self.file_path = file_path
@@ -121,12 +131,6 @@ class IfcTreeViewer(QMainWindow):
             self.middle_model.clear()
             self.left_model.removeRows(0, self.left_model.rowCount())
             self.right_model.removeRows(0, self.right_model.rowCount())
-
-            sorted_entities = sorted(self.model, key=lambda e: e.id())
-            for entity in sorted_entities:
-                item = QStandardItem(self.create_entity_label(entity))
-                item.setData(entity)
-                self.middle_model.appendRow(item)
 
             if file_path in self.recent_files:
                 self.recent_files.remove(file_path)

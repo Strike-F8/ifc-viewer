@@ -150,7 +150,7 @@ class AssemblyViewerWindow(QMainWindow):
             if isinstance(value, ifcopenshell.entity_instance):
                 self.G.add_edge(entity.id(), value.id())
                 self.add_forward_references_to_graph(value)
-            elif str(value) == "RelatedObjects":
+            elif str(value) == "RelatedObjects": # TODO: Traverse into every type of iterable. Not just RelatedObjects
                 for item in value:
                     if isinstance(item, ifcopenshell.entity_instance):
                         self.G.add_edge(entity.id(), item.id())
