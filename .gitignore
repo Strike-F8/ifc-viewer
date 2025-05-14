@@ -1,0 +1,7 @@
+*.ifc
+*.exe
+*.json
+/*build
+/*dist
+*.spec
+*.cpython*
