@@ -16,7 +16,7 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 class IfcTreeViewer(QMainWindow):
     def __init__(self, ifc_file=None):
         super().__init__()
-        self.setWindowTitle("IFC Tree Viewer")
+        self.setWindowTitle("IFC Reference Viewer")
         self.file_path = ifc_file
         self.model = None
 

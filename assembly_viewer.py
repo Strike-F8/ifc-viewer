@@ -171,7 +171,7 @@ class AssemblyViewerWindow(QMainWindow):
         # There are certain entities that are necessary for being read by other programs
         # IfcProject, IfcBuilding
 
-        output_model = ifcopenshell.file(schema="IFC2X3")
+        output_model = ifcopenshell.file(schema=self.ifc_model.schema) # Ideally, this program is schema agnostic
 
         # Get IfcProject
         project = self.ifc_model.by_type("IfcProject")[0] # by_type() returns a list but there is only one IfcProject so we take the first element
