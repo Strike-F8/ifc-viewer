@@ -57,7 +57,6 @@ class AssemblyViewerWindow(QMainWindow):
         super().__init__(parent)
 
         self.title = title
-        self.ifc_model = ifc_model
         if self.title:
             self.setWindowTitle(f"Assemblies found in {self.title}")
         else:

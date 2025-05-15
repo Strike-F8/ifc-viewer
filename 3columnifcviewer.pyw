@@ -14,20 +14,21 @@ from PySide6.QtCore import Qt, QSortFilterProxyModel, QAbstractTableModel
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 
 class EntityViewModel(QAbstractTableModel):
-    def __init__(self, data):
+    def __init__(self, entities=None):
         super().__init__()
-        self.data = data
-        self.headers = ["STEP ID", "Type", "GUID", "Name"]
+        self.headers = ["STEP ID", "Type", "GUID", "Name", "Entity"]
+        self.entities = entities
+        self.data_list = []
 
     def rowCount(self, parent=None):
-        return len(self.data)
+        return len(self.data_list)
 
     def columnCount(self, parent=None):
-        return len(self._data[0]) if self._data else 0
+        return len(self.data_list[0]) if self.data_list else 0
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
-            return str(self.data[index.row()][index.column()])
+            return str(self.data_list[index.row()][index.column()])
         return None
 
     def headerData(self, section, orientation, role):
@@ -37,40 +38,43 @@ class EntityViewModel(QAbstractTableModel):
     
     def clear(self):
         self.beginResetModel()
-        self._data = []
+        self.data_list = []
         self.endResetModel()
+
     # TODO: IMPLEMENT THIS
-    def populate_assemblies(self):
-        for mark, entities in self.assemblies.items():
-            for entity in entities:
-                info = entity.get_info()
-                step_id = "#" + str(entity.id())
-                global_id = info.get("GlobalId", "")
-                name = info.get("Name", "")
-                ifc_type = entity.is_a()
-                self.data_list.append([step_id, mark, global_id, name, ifc_type, entity])
+    # Add the entities to the middle view
+    def populate_entities(self, entities):
+        self.beginResetModel()
+        self.entities = entities
+        for entity in self.entities:
+            info = entity.get_info()
+            step_id = "#" + str(entity.id())
+            global_id = info.get("GlobalId", "")
+            name = info.get("Name", "")
+            ifc_type = entity.is_a()
+            self.data_list.append([step_id, ifc_type, global_id, name, entity])
+        self.endResetModel()
 
 
-class IfcTreeViewer(QMainWindow):
+class IfcViewer(QMainWindow):
     def __init__(self, ifc_file=None):
         super().__init__()
         self.setWindowTitle("IFC Reference Viewer")
         self.file_path = ifc_file
-        self.model = None
+        if ifc_file:
+            self.ifc_model = self.load_ifc(self.file_path)
+        else:
+            self.ifc_model = None
 
         self.max_recent_files = 5
         self.recent_files = self.load_recent_files()
 
-        self.middle_model = EntityViewModel(self.model)
-        # setup a proxy model for sorting
-        self.proxy_model = QSortFilterProxyModel()
-        self.proxy_model.setSourceModel(self.model)
-
-        # sorting behavior
-        self.proxy_model.setSortRole(Qt.DisplayRole)
+        self.middle_model = EntityViewModel(self.ifc_model)
 
         self.middle_view = QTableView()
-        self.middle_view.setModel(self.proxy_model)
+        self.middle_view.setModel(self.middle_model)
+        self.middle_view.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.middle_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.middle_view.setSortingEnabled(True)
         self.middle_view.resizeColumnsToContents()
         self.middle_view.horizontalHeader().setStretchLastSection(True)
@@ -156,17 +160,7 @@ class IfcTreeViewer(QMainWindow):
 
     def load_entities(self):
         self.middle_model.clear()
-
-        sorted_entities = sorted(self.model, key=lambda e: e.id())
-        for entity in sorted_entities:
-            row = [
-                QStandardItem(entity.id()).setData(entity.id()),
-                QStandardItem(entity.is_a()),
-                QStandardItem(getattr(entity, "GlobalId", "None")),
-                QStandardItem(getattr(entity, "Name", "None")),
-            ]
-            row[1].setData(entity)  # store the full entity in each cell
-            self.middle_model.appendRow(row)
+        self.middle_model.populate_entities(list(self.ifc_model))
 
     def filter_middle(self):
         search_text = self.search_bar.text().lower()
@@ -179,12 +173,14 @@ class IfcTreeViewer(QMainWindow):
         self.unhighlight_selected_item()
         self.setWindowTitle(file_path)
         try:
-            self.model = ifcopenshell.open(file_path)
+            self.ifc_model = ifcopenshell.open(file_path)
             self.file_path = file_path
 
             self.middle_model.clear()
             self.left_model.removeRows(0, self.left_model.rowCount())
             self.right_model.removeRows(0, self.right_model.rowCount())
+
+            self.load_entities()
 
             if file_path in self.recent_files:
                 self.recent_files.remove(file_path)
@@ -239,7 +235,7 @@ class IfcTreeViewer(QMainWindow):
             self.load_ifc(path)
 
     def open_new_window(self):
-        self.new_window = IfcTreeViewer()
+        self.new_window = IfcViewer()
         self.new_window.show() 
 
     def handle_entity_selection(self, index):
@@ -387,7 +383,7 @@ class IfcTreeViewer(QMainWindow):
             visited.add(entity.id())
 
             # Get and sort referencing entities by ID
-            references = sorted(self.model.get_inverse(entity), key=lambda ref: ref.id())
+            references = sorted(self.ifc_model.get_inverse(entity), key=lambda ref: ref.id())
 
             for ref in references:
                 if ref.id() not in visited:
@@ -400,7 +396,7 @@ class IfcTreeViewer(QMainWindow):
 # ==============================
 
     def show_assemblies_window(self):
-        self.assembly_viewer = AssemblyViewerWindow(title=self.file_path, ifc_model=self.model)
+        self.assembly_viewer = AssemblyViewerWindow(title=self.file_path, ifc_model=self.ifc_model)
         self.assembly_viewer.show()
 
 if __name__ == "__main__":
@@ -408,7 +404,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     font = QFont("Consolas", 11)
     app.setFont(font)
-    viewer = IfcTreeViewer(file_path)
+    viewer = IfcViewer(file_path)
     viewer.resize(1200, 600)
     viewer.show()
     sys.exit(app.exec())
