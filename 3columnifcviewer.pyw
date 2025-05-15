@@ -14,6 +14,10 @@ from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
 from PySide6.QtCore import Qt, QAbstractTableModel, QEvent
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
+# TODO: When exporting assemblies, get all geometry including openings and materials
+# TODO: Improve filtering for large files (Instead of hiding/showing, just show the relevant rows?)
+# TODO: Review character limit for middle view (shorten long lists of references but keep everything else?)
+#       e.g. #123=IfcElement('ASDFNAWEKFN',$,$,(#1, #2, #3,...+32refs), #10, #200)
 
 class _UpdateFilterEvent(QEvent):
     EVENT_TYPE = QEvent.Type(QEvent.registerEventType())
