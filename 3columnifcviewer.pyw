@@ -146,6 +146,7 @@ class IfcViewer(QMainWindow):
         self.right_model = QStandardItemModel()
         self.right_model.setHorizontalHeaderLabels(['Entity <- Referenced By'])
         self.right_view.setModel(self.right_model)
+        self.right_view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.right_view.customContextMenuRequested.connect(lambda pos, v=self.right_view: self.show_context_menu(pos, v))
 
         self.add_toolbar()
@@ -248,12 +249,10 @@ class IfcViewer(QMainWindow):
         if view == self.middle_view:
             # Get the selected entity
             entity = self.middle_model.get_entity(index.row())
-        elif view == self.left_view:
+        else:
             # Get the selected entity
-            entity = self.left_model.itemFromIndex(index).data()
-        elif view == self.right_view:
-            entity = self.right_model.itemFromIndex(index).data()
-        
+            entity = view.model().itemFromIndex(index).data()
+
         if not entity:
             return
         
@@ -431,11 +430,11 @@ class IfcViewer(QMainWindow):
             if isinstance(attr, ifcopenshell.entity_instance):
                 child = QStandardItem(self.create_entity_label(attr))
                 child.setData(attr)
-                child.setFlags(child.flags() & ~Qt.ItemIsEditable)
                 if lazy:
                     child.appendRow(QStandardItem("Loading..."))
                 else:
                     self.expand_entity_tree(child, attr, lazy)
+                child.setFlags(child.flags() & ~Qt.ItemIsEditable)
                 parent_item.appendRow(child)
             else:
                 child = QStandardItem(str(attr))
