@@ -261,12 +261,28 @@ class IfcViewer(QMainWindow):
         copy_action = QAction(f"Copy STEP Line #{entity.id()}", menu)
         copy_action.triggered.connect(lambda: self.copy_step_line(entity))
         menu.addAction(copy_action)
+        copy_row_action = QAction("Copy This Row", menu)
+        copy_row_action.triggered.connect(lambda: self.copy_row_text(view, index.row()))
+        menu.addAction(copy_row_action)
         menu.exec(view.viewport().mapToGlobal(position))
         
     def copy_step_line(self, entity):
         clipboard = QApplication.clipboard()
         clipboard.setText(str(entity))
-        
+
+    def copy_row_text(self, view, row):
+        model = view.model()
+        column_count = model.columnCount()
+        row_text = []
+
+        for col in range(column_count):
+            index = model.index(row, col)
+            text = model.data(index, Qt.DisplayRole)
+            if text:
+                row_text.append(str(text))
+
+        QApplication.clipboard().setText("\t".join(row_text))
+ 
     def load_ifc(self, file_path):
         self.setWindowTitle(file_path)
         try:
