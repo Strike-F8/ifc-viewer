@@ -26,9 +26,18 @@ class EntityViewModel(QAbstractTableModel):
     def columnCount(self, parent=None):
         return len(self.data_list[0]) if self.data_list else 0
 
-    def data(self, index, role):
-        if role == Qt.DisplayRole:
-            return str(self.data_list[index.row()][index.column()])
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid() or role != Qt.DisplayRole:
+            return None
+        row = index.row()
+        col = index.column()
+        if 0 <= row < len(self.data_list):
+            return str(self.data_list[row][col])  # For display, show string versions of each column
+        return None
+    
+    def get_entity(self, row):
+        if 0 <= row < len(self.data_list):
+            return self.data_list[row][4]
         return None
 
     def headerData(self, section, orientation, role):
@@ -241,17 +250,15 @@ class IfcViewer(QMainWindow):
     def handle_entity_selection(self, index):
         sender = self.sender()
 
-        entity = index.siblingAtColumn(0).data()
-
-        if not entity:
-            print("ERROR SELECTING ENTITY")
-            return
-
         if sender == self.middle_view.selectionModel():
+            # Get the selected entity
+            entity = self.middle_model.get_entity(index.row())
             # Update the left and right views
             self.populate_left_view(entity)
             self.populate_right_view(entity)
         elif sender == self.left_view.selectionModel():
+            # Get the selected entity
+            entity = self.left_model.itemFromIndex(index).data()
             # Update the right view
             self.populate_right_view(entity)
 
