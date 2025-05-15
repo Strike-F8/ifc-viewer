@@ -45,7 +45,8 @@ class EntityViewModel(QAbstractTableModel):
     # Add the entities to the middle view
     def populate_entities(self, entities):
         self.beginResetModel()
-        self.entities = entities
+        self.entities = sorted(entities, key=lambda e: e.id()) # Sort by STEP ID
+
         for entity in self.entities:
             info = entity.get_info()
             step_id = "#" + str(entity.id())
@@ -170,7 +171,6 @@ class IfcViewer(QMainWindow):
             self.middle_view.setRowHidden(i, hidden)
 
     def load_ifc(self, file_path):
-        self.unhighlight_selected_item()
         self.setWindowTitle(file_path)
         try:
             self.ifc_model = ifcopenshell.open(file_path)
@@ -248,34 +248,13 @@ class IfcViewer(QMainWindow):
             return
 
         if sender == self.middle_view.selectionModel():
-            # unhighlight the previously selected item and highlight the new one
-            self.highlight_selected_item(self.middle_model, index)
             # Update the left and right views
             self.populate_left_view(entity)
             self.populate_right_view(entity)
         elif sender == self.left_view.selectionModel():
-            self.highlight_selected_item(self.left_model, index)
             # Update the right view
             self.populate_right_view(entity)
 
-    def unhighlight_selected_item(self):
-        if self.highlighted_item:
-            item = self.highlighted_item[0].itemFromIndex(self.highlighted_item[1])
-            item.setFont(self.font())
-            self.highlighted_item = None
-
-    # keeps track of the selected item and switches highlighting when a new item is selected
-    def highlight_selected_item(self, model, index):
-        # If there is a currently highlighted item, unhighlight it
-        self.unhighlight_selected_item()
-            
-        # highlight the new selection
-        item = model.itemFromIndex(index)
-        font = item.font()
-        font.setBold(True)
-        item.setFont(font)
-        self.highlighted_item = (model, index)
-        
     def populate_right_view(self, entity):
         self.right_model.removeRows(0, self.right_model.rowCount())
 
