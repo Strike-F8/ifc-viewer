@@ -370,6 +370,7 @@ class IfcViewer(QMainWindow):
         self.right_model.removeRows(0, self.right_model.rowCount())
 
         root_item = self.create_lazy_item(entity)
+        root_item.setFlags(root_item.flags() & ~Qt.ItemIsEditable)
         self.right_model.appendRow(root_item)
 
     def lazy_load_forward_references(self, index):
@@ -410,6 +411,7 @@ class IfcViewer(QMainWindow):
                 children = sorted(children, key=lambda e: e.id())
                 for child in children:
                     child_item = self.create_lazy_item(child)
+                    child_item.setFlags(child_item.flags() & ~Qt.ItemIsEditable)
                     item.appendRow(child_item)
             else:
                 # No entity references — show named attributes
@@ -418,6 +420,7 @@ class IfcViewer(QMainWindow):
                     if key == "id" or key == "type":
                         continue
                     label = f"{key}: {value}"
+                    item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                     item.appendRow(QStandardItem(label))
 
     def expand_entity_tree(self, parent_item, entity, lazy=False):
@@ -428,13 +431,16 @@ class IfcViewer(QMainWindow):
             if isinstance(attr, ifcopenshell.entity_instance):
                 child = QStandardItem(self.create_entity_label(attr))
                 child.setData(attr)
+                child.setFlags(child.flags() & ~Qt.ItemIsEditable)
                 if lazy:
                     child.appendRow(QStandardItem("Loading..."))
                 else:
                     self.expand_entity_tree(child, attr, lazy)
                 parent_item.appendRow(child)
             else:
-                parent_item.appendRow(QStandardItem(str(attr)))
+                child = QStandardItem(str(attr))
+                child.setFlags(child.flags() & ~Qt.ItemIsEditable)
+                parent_item.appendRow(child)
 
     def load_entity_children(self, parent_item, entity):
         self.expand_entity_tree(parent_item, entity, lazy=True)
@@ -443,11 +449,13 @@ class IfcViewer(QMainWindow):
         self.left_model.removeRows(0, self.left_model.rowCount())
         
         root_item = self.create_lazy_item(entity)
+        root_item.setFlags(root_item.flags() & ~Qt.ItemIsEditable)
         self.left_model.appendRow(root_item)
 
     def create_lazy_item(self, ent):
         item = QStandardItem(f"#{ent.id()} - {ent.is_a()} | Name: {ent.get_info().get('Name', 'N/A')}")
         item.setData(ent)
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
         # Add dummy child so it's expandable
         item.appendRow(QStandardItem("Loading..."))
