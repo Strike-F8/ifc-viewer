@@ -3,6 +3,7 @@ import os
 import json
 import ifcopenshell
 import concurrent.futures
+import re
 
 from assembly_viewer import AssemblyViewerWindow
 
@@ -32,6 +33,7 @@ class EntityViewModel(QAbstractTableModel):
         self.headers = ["STEP ID", "Type", "GUID", "Name", "Entity"]
         self.entities = entities
         self.data_list = []
+        self.entity_lookup = []
 
     def rowCount(self, parent=None):
         return len(self.data_list)
@@ -50,7 +52,7 @@ class EntityViewModel(QAbstractTableModel):
     
     def get_entity(self, row):
         if 0 <= row < len(self.data_list):
-            return self.data_list[row][4]
+            return self.entity_lookup[row]
         return None
 
     def headerData(self, section, orientation, role):
@@ -76,13 +78,35 @@ class EntityViewModel(QAbstractTableModel):
             global_id = info.get("GlobalId", "")
             name = info.get("Name", "")
             ifc_type = entity.is_a()
-            self.data_list.append([step_id, ifc_type, global_id, name, entity])
+            step_line = self.format_step_line(str(entity).strip()) # Get the step line of the entity to display on the table
+            
+            self.data_list.append([step_id, ifc_type, global_id, name, step_line])
+            self.entity_lookup.append(entity) # Add the entity itself to a separate list that we can lookup later
+            print(f"Added {entity} to middle model")
 
             # Build a lowercase searchable string
             label = f"{step_id} {ifc_type} {global_id} {name}".lower()
             self.filter_cache.append(label)
 
         self.endResetModel()
+    
+    def format_step_line(self, step_line, max_refs=2):
+        if len(step_line) < 200:
+            return step_line
+        else:
+            # Regex to match reference sets like (#1,#2,#3)
+            pattern = re.compile(r"\((#\d+(?:,#\d+)+)\)")
+
+            def replacer(match):
+                refs = match.group(1).split(",")
+                if len(refs) > max_refs:
+                    shown = ",".join(refs[:max_refs])
+                    more = len(refs) - max_refs
+                    return f"({shown},…+{more} more)"
+                else:
+                    return f"({match.group(1)})"
+
+            return pattern.sub(replacer, step_line)
 
 class IfcViewer(QMainWindow):
     def __init__(self, ifc_file=None):
