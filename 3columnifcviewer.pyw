@@ -2,16 +2,25 @@ import sys
 import os
 import json
 import ifcopenshell
+import concurrent.futures
+
 from assembly_viewer import AssemblyViewerWindow
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget,
-    QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView,
+    QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView
 )
 from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt, QSortFilterProxyModel, QAbstractTableModel
+from PySide6.QtCore import Qt, QAbstractTableModel, QEvent
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
+
+class _UpdateFilterEvent(QEvent):
+    EVENT_TYPE = QEvent.Type(QEvent.registerEventType())
+
+    def __init__(self, results):
+        super().__init__(self.EVENT_TYPE)
+        self.results = results
 
 class EntityViewModel(QAbstractTableModel):
     def __init__(self, entities=None):
@@ -50,11 +59,12 @@ class EntityViewModel(QAbstractTableModel):
         self.data_list = []
         self.endResetModel()
 
-    # TODO: IMPLEMENT THIS
     # Add the entities to the middle view
     def populate_entities(self, entities):
         self.beginResetModel()
-        self.entities = sorted(entities, key=lambda e: e.id()) # Sort by STEP ID
+        self.entities = sorted(entities, key=lambda e: e.id())  # Sort by STEP ID
+        self.data_list = []
+        self.filter_cache = []
 
         for entity in self.entities:
             info = entity.get_info()
@@ -63,14 +73,20 @@ class EntityViewModel(QAbstractTableModel):
             name = info.get("Name", "")
             ifc_type = entity.is_a()
             self.data_list.append([step_id, ifc_type, global_id, name, entity])
-        self.endResetModel()
 
+            # Build a lowercase searchable string
+            label = f"{step_id} {ifc_type} {global_id} {name}".lower()
+            self.filter_cache.append(label)
+
+        self.endResetModel()
 
 class IfcViewer(QMainWindow):
     def __init__(self, ifc_file=None):
         super().__init__()
         self.setWindowTitle("IFC Reference Viewer")
         self.file_path = ifc_file
+        self.filter_cache = []
+
         if ifc_file:
             self.ifc_model = self.load_ifc(self.file_path)
         else:
@@ -133,10 +149,8 @@ class IfcViewer(QMainWindow):
         self.middle_view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.middle_view.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
 
-        # The currently highlighted item
-        # it is a tuple containing the corresponding model and index
-        self.highlighted_item = None
-
+        # threading for faster search
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     def add_toolbar(self):
         toolbar = QToolBar("Main Toolbar")
@@ -161,30 +175,35 @@ class IfcViewer(QMainWindow):
     def add_search_bar(self):
         self.search_bar = QLineEdit(self)
         self.search_bar.setPlaceholderText("Press ENTER to filter entities...")
-        self.search_bar.returnPressed.connect(self.filter_middle)
+        self.search_bar.returnPressed.connect(self.start_filtering)
     
     def add_search_button(self):
         self.search_button = QPushButton(self)
         self.search_button.setText("Filter")
-        self.search_button.clicked.connect(self.filter_middle)
+        self.search_button.clicked.connect(self.start_filtering)
 
     def load_entities(self):
         self.middle_model.clear()
         self.middle_model.populate_entities(list(self.ifc_model))
 
-    def filter_middle(self):
+    def start_filtering(self):
         search_text = self.search_bar.text().lower()
-        for row in range(self.middle_model.rowCount()):
-            # Check if any cell in this row contains the search text
-            match = False
-            for col in range(self.middle_model.columnCount()):
-                index = self.middle_model.index(row, col)
-                data = self.middle_model.data(index, Qt.DisplayRole)
-                if data and search_text in str(data).lower():
-                    match = True
-                    break
-            self.middle_view.setRowHidden(row, not match)
+        cache = list(self.middle_model.filter_cache)
+        future = self.executor.submit(self.filter_rows, search_text, cache)
+        future.add_done_callback(self.on_filter_finished)
 
+    def filter_rows(self, search_text, cache):
+        return [search_text in cached for cached in cache]
+
+    def on_filter_finished(self, future):
+        results = future.result()
+        QApplication.postEvent(self, _UpdateFilterEvent(results))
+
+    def customEvent(self, event):
+        if isinstance(event, _UpdateFilterEvent):
+            for row, visible in enumerate(event.results):
+                self.middle_view.setRowHidden(row, not visible)
+    
     
     def load_ifc(self, file_path):
         self.setWindowTitle(file_path)
