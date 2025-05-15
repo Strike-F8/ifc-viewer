@@ -116,6 +116,8 @@ class AssemblyViewerWindow(QMainWindow):
         # TODO: Get all related entities including openings, voids, materials etc.
         #       without getting unselected entities as well
         #       Right now, this function only gets the overall geometry of the assembly parts
+
+        self.G.clear() # Reset the graph for the new export
         for entity in selected_entities:
             # Add the forward references of the starting entity to the graph
             self.add_forward_references_to_graph(entity)
