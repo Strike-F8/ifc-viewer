@@ -4,6 +4,7 @@ import json
 import ifcopenshell
 import concurrent.futures
 import re
+import sqlite3
 
 from assembly_viewer import AssemblyViewerWindow
 
@@ -16,9 +17,7 @@ from PySide6.QtCore import Qt, QAbstractTableModel, QEvent
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 # TODO: When exporting assemblies, get all geometry including openings and materials
-# TODO: Improve filtering for large files (Instead of hiding/showing, just show the relevant rows?)
-# TODO: Review character limit for middle view (shorten long lists of references but keep everything else?)
-#       e.g. #123=IfcElement('ASDFNAWEKFN',$,$,(#1, #2, #3,...+32refs), #10, #200)
+# TODO: Implement SQLite for better performance with large ifc files
 
 class _UpdateFilterEvent(QEvent):
     EVENT_TYPE = QEvent.Type(QEvent.registerEventType())
@@ -113,6 +112,8 @@ class IfcViewer(QMainWindow):
         self.setWindowTitle("IFC Reference Viewer")
         self.file_path = ifc_file
         self.filter_cache = []
+
+        self.setup_db()
 
         if ifc_file:
             self.ifc_model = self.load_ifc(self.file_path)
@@ -284,6 +285,8 @@ class IfcViewer(QMainWindow):
  
     def load_ifc(self, file_path):
         self.setWindowTitle(file_path)
+
+            
         try:
             self.ifc_model = ifcopenshell.open(file_path)
             self.file_path = file_path
@@ -300,6 +303,14 @@ class IfcViewer(QMainWindow):
             self.recent_files = self.recent_files[:self.max_recent_files]
             self.update_recent_files_menu()
             self.save_recent_files()
+
+        try:
+            self.db = sqlite3.connect(f"db/{os.path.basename(file_path)}") # Save a database with the name of the ifc file
+            self.db.execute("CREATE VIRTUAL TABLE entities USING fts5(id, mark, global_id, name, type, fulltext)")
+
+            for row in self.ifc_model.entities:
+                fulltext = " ".join(str(x) for x in row[:-1])  # Exclude `entity` object
+                self.db.execute("INSERT INTO entities VALUES (?, ?, ?, ?, ?, ?)", (*row[:-1], fulltext))
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
