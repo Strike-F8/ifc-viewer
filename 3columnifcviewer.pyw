@@ -82,7 +82,6 @@ class EntityViewModel(QAbstractTableModel):
             
             self.data_list.append([step_id, ifc_type, global_id, name, step_line])
             self.entity_lookup.append(entity) # Add the entity itself to a separate list that we can lookup later
-            print(f"Added {entity} to middle model")
 
             # Build a lowercase searchable string
             label = f"{step_id} {ifc_type} {global_id} {name}".lower()
@@ -133,16 +132,21 @@ class IfcViewer(QMainWindow):
         self.middle_view.resizeColumnsToContents()
         self.middle_view.horizontalHeader().setStretchLastSection(True)
         self.middle_view.verticalHeader().setVisible(False)
+        self.middle_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.middle_view.customContextMenuRequested.connect(lambda pos, v=self.middle_view: self.show_context_menu(pos, v))
 
         self.left_view = QTreeView()
         self.left_model = QStandardItemModel()
         self.left_model.setHorizontalHeaderLabels(['References -> Entity'])
         self.left_view.setModel(self.left_model)
+        self.left_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.left_view.customContextMenuRequested.connect(lambda pos, v=self.left_view: self.show_context_menu(pos, v))
 
         self.right_view = QTreeView()
         self.right_model = QStandardItemModel()
         self.right_model.setHorizontalHeaderLabels(['Entity <- Referenced By'])
         self.right_view.setModel(self.right_model)
+        self.right_view.customContextMenuRequested.connect(lambda pos, v=self.right_view: self.show_context_menu(pos, v))
 
         self.add_toolbar()
         self.add_file_menu()
@@ -232,7 +236,37 @@ class IfcViewer(QMainWindow):
             for row, visible in enumerate(event.results):
                 self.middle_view.setRowHidden(row, not visible)
     
-    
+    # When clicking on an entity in either of the three views, show a context menu that allows the user to copy
+    # the original step line of the entity
+    def show_context_menu(self, position, view):
+        index = view.indexAt(position)
+        if not index.isValid():
+            return
+
+        entity = None
+
+        if view == self.middle_view:
+            # Get the selected entity
+            entity = self.middle_model.get_entity(index.row())
+        elif view == self.left_view:
+            # Get the selected entity
+            entity = self.left_model.itemFromIndex(index).data()
+        elif view == self.right_view:
+            entity = self.right_model.itemFromIndex(index).data()
+        
+        if not entity:
+            return
+        
+        menu = QMenu()
+        copy_action = QAction(f"Copy STEP Line #{entity.id()}", menu)
+        copy_action.triggered.connect(lambda: self.copy_step_line(entity))
+        menu.addAction(copy_action)
+        menu.exec(view.viewport().mapToGlobal(position))
+        
+    def copy_step_line(self, entity):
+        clipboard = QApplication.clipboard()
+        clipboard.setText(str(entity))
+        
     def load_ifc(self, file_path):
         self.setWindowTitle(file_path)
         try:
