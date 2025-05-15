@@ -174,11 +174,18 @@ class IfcViewer(QMainWindow):
 
     def filter_middle(self):
         search_text = self.search_bar.text().lower()
-        for i in range(self.middle_model.rowCount()):
-            item = self.middle_model.item(i)
-            hidden = search_text not in item.text().lower()
-            self.middle_view.setRowHidden(i, hidden)
+        for row in range(self.middle_model.rowCount()):
+            # Check if any cell in this row contains the search text
+            match = False
+            for col in range(self.middle_model.columnCount()):
+                index = self.middle_model.index(row, col)
+                data = self.middle_model.data(index, Qt.DisplayRole)
+                if data and search_text in str(data).lower():
+                    match = True
+                    break
+            self.middle_view.setRowHidden(row, not match)
 
+    
     def load_ifc(self, file_path):
         self.setWindowTitle(file_path)
         try:
