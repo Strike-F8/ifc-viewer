@@ -300,7 +300,8 @@ class IfcViewer(QMainWindow):
 
         if view == self.middle_view:
             # Get the selected entity
-            entity = self.middle_model.get_entity(index.row())
+            step_id = index.sibling(index.row(), 0).data()  # column 0 = "STEP ID"
+            entity = self.ifc_model.by_id(int(step_id[1:])) # Get the entity selected by the user
         else:
             # Get the selected entity
             entity = view.model().itemFromIndex(index).data()
