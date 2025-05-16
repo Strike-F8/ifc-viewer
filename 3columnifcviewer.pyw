@@ -42,6 +42,7 @@ class SqlEntityTableModel(QAbstractTableModel):
         self.populate_db()
 
         self._filter = ""
+        self._filter_params = ()
         self._row_ids = []
         self._sort_column = "\"STEP ID\""
         self._sort_order = "ASC"
@@ -50,22 +51,26 @@ class SqlEntityTableModel(QAbstractTableModel):
 
     def _load_row_ids(self):
         if self._filter:
+            # Escape single quotes inside filter string for SQL
+            safe_filter = self._filter.replace("'", "''") + "*"  # Add wildcard for partial match
             query = f"""
                 SELECT rowid FROM fts_entities
-                WHERE fts_entities MATCH ?
+                WHERE fts_entities MATCH '{safe_filter}'
+                ORDER BY {self._sort_column} {self._sort_order}
             """
-            params = (self._filter,)
+            rows = self.db.execute(query)
         else:
-            query = "SELECT id FROM base_entities"
-            params = ()
+            query = f"""
+                SELECT id FROM base_entities
+                ORDER BY {self._sort_column} {self._sort_order}
+            """
+            rows = self.db.execute(query)
 
-        query += f" ORDER BY {self._sort_column} {self._sort_order}"
-
-        self._row_ids = [row[0] for row in self.db.execute(query, params)]
+        self._row_ids = [row[0] for row in rows]
         self._row_count = len(self._row_ids)
 
     def set_filter(self, filter_text):
-        self._filter = filter_text
+        self._filter = filter_text.strip()
         self._load_row_ids()
         self._get_row.cache_clear()
         self.layoutChanged.emit()
@@ -134,7 +139,9 @@ class SqlEntityTableModel(QAbstractTableModel):
             self.db.execute(f"""CREATE VIRTUAL TABLE fts_entities USING fts5(
                 {self.columns_sql},
                 content='base_entities',
-                content_rowid='id'
+                content_rowid='id',
+                tokenize='porter',
+                prefix='2,3'
                 )
             """)
         except Exception as e:
@@ -212,8 +219,8 @@ class IfcViewer(QMainWindow):
 
         self.add_toolbar()
         self.add_file_menu()
-        self.add_search_bar()
-        self.add_search_button()
+        self.add_filter_bar()
+        self.add_filter_button()
 
         # Lazy load children upon expanding a root item
         self.left_view.expanded.connect(self.lazy_load_inverse_references)
@@ -229,8 +236,8 @@ class IfcViewer(QMainWindow):
 
         center_layout = QVBoxLayout()
         search_layout = QHBoxLayout()
-        search_layout.addWidget(self.search_bar)
-        search_layout.addWidget(self.search_button)
+        search_layout.addWidget(self.filter_bar)
+        search_layout.addWidget(self.filter_button)
         center_layout.addLayout(search_layout)
         center_layout.addWidget(splitter)
         container = QWidget()
@@ -265,34 +272,21 @@ class IfcViewer(QMainWindow):
         file_menu.addMenu(self.recent_menu)
         self.update_recent_files_menu()
 
-    def add_search_bar(self):
-        self.search_bar = QLineEdit(self)
-        self.search_bar.setPlaceholderText("Press ENTER to filter entities...")
-        self.search_bar.returnPressed.connect(self.start_filtering)
+    def add_filter_bar(self):
+        self.filter_bar = QLineEdit(self)
+        self.filter_bar.setPlaceholderText("Press ENTER to filter entities...")
+        self.filter_bar.returnPressed.connect(self.apply_filter)
     
-    def add_search_button(self):
-        self.search_button = QPushButton(self)
-        self.search_button.setText("Filter")
-        self.search_button.clicked.connect(self.start_filtering)
+    def add_filter_button(self):
+        self.filter_button = QPushButton(self)
+        self.filter_button.setText("Filter")
+        self.filter_button.clicked.connect(self.apply_filter)
 
-    def start_filtering(self):
-        search_text = self.search_bar.text().lower()
-        cache = list(self.middle_model.filter_cache)
-        future = self.executor.submit(self.filter_rows, search_text, cache)
-        future.add_done_callback(self.on_filter_finished)
+    def apply_filter(self):
+        filter_term = self.filter_bar.text()
+        self.middle_model.set_filter(filter_term)
+        
 
-    def filter_rows(self, search_text, cache):
-        return [search_text in cached for cached in cache]
-
-    def on_filter_finished(self, future):
-        results = future.result()
-        QApplication.postEvent(self, _UpdateFilterEvent(results))
-
-    def customEvent(self, event):
-        if isinstance(event, _UpdateFilterEvent):
-            for row, visible in enumerate(event.results):
-                self.middle_view.setRowHidden(row, not visible)
-    
     # When clicking on an entity in either of the three views, show a context menu that allows the user to copy
     # the original step line of the entity
     def show_context_menu(self, position, view):
@@ -415,8 +409,13 @@ class IfcViewer(QMainWindow):
         sender = self.sender()
 
         if sender == self.middle_view.selectionModel():
-            # Get the selected entity
-            entity = self.middle_model.get_entity(index.row())
+            # Assume using the step id displayed in the middle view to look up in the ifc model
+            # is faster than looking up in the SQL database
+            step_id = index.sibling(index.row(), 0).data()  # column 0 = "STEP ID"
+
+            # Remove the preceding "#" when looking up by step id in the ifc model
+            entity = self.ifc_model.by_id(int(step_id[1:])) # Get the entity selected by the user
+
             # Update the left and right views
             self.populate_left_view(entity)
             self.populate_right_view(entity)
@@ -438,7 +437,6 @@ class IfcViewer(QMainWindow):
         if not item:
             return
 
-        # Already loaded?
         if item.hasChildren() and item.child(0).text() == "Loading...":
             item.removeRows(0, item.rowCount())  # Remove dummy
 
