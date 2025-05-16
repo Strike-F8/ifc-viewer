@@ -10,10 +10,10 @@ from assembly_viewer import AssemblyViewerWindow
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget,
-    QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView
+    QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView, QHeaderView
 )
 from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt, QAbstractTableModel, QEvent, QModelIndex
+from PySide6.QtCore import Qt, QAbstractTableModel, QEvent, QModelIndex, QThread, Signal
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 # TODO: When exporting assemblies, get all geometry including openings and materials
@@ -37,27 +37,36 @@ class SqlEntityTableModel(QAbstractTableModel):
         self.db = sqlite3.connect(db_path) # Save a database with the name of the ifc file
         self.db.row_factory = sqlite3.Row
         self._columns = ["STEP ID", "Ifc Type", "GUID", "Name", "STEP Line"]
-
-        # Disable journaling for increased performance as we will not be editing the database after initial insert
-        self.db.execute("PRAGMA journal_mode = OFF")
-        self.db.execute("PRAGMA synchronous = OFF")
+        self.columns_sql = ", ".join(f'"{col}"' for col in self._columns) # Define the columns here only to prevent discrepancies
 
         self.populate_db()
+
         self._filter = ""
+        self._row_ids = []
         self._sort_column = "\"STEP ID\""
         self._sort_order = "ASC"
-        self._row_count = self._compute_row_count()
 
-    def _compute_row_count(self):
-        query = "SELECT COUNT(*) FROM entities"
+        self._load_row_ids()
+
+    def _load_row_ids(self):
         if self._filter:
-            query += " WHERE fulltext LIKE ?"
-            return self.db.execute(query, (f"%{self._filter}%",)).fetchone()[0]
-        return self.db.execute(query).fetchone()[0]
+            query = f"""
+                SELECT rowid FROM fts_entities
+                WHERE fts_entities MATCH ?
+            """
+            params = (self._filter,)
+        else:
+            query = "SELECT id FROM base_entities"
+            params = ()
+
+        query += f" ORDER BY {self._sort_column} {self._sort_order}"
+
+        self._row_ids = [row[0] for row in self.db.execute(query, params)]
+        self._row_count = len(self._row_ids)
 
     def set_filter(self, filter_text):
         self._filter = filter_text
-        self._row_count = self._compute_row_count()
+        self._load_row_ids()
         self._get_row.cache_clear()
         self.layoutChanged.emit()
 
@@ -65,6 +74,7 @@ class SqlEntityTableModel(QAbstractTableModel):
         if column_name in self._columns:
             self._sort_column = column_name
             self._sort_order = "ASC" if ascending else "DESC"
+            self._load_row_ids()
             self._get_row.cache_clear()
             self.layoutChanged.emit()
 
@@ -89,42 +99,58 @@ class SqlEntityTableModel(QAbstractTableModel):
             return None
         return row[self._columns[index.column()]]
 
-    @functools.lru_cache(maxsize=99999999)
+    @functools.lru_cache(maxsize=4096)
     def _get_row(self, row_index):
-        query = f"""
-            SELECT * FROM entities
-            {"WHERE fulltext LIKE ?" if self._filter else ""}
-            ORDER BY {self._sort_column} {self._sort_order}
-            LIMIT 1 OFFSET ?
-        """
-        params = (f"%{self._filter}%", row_index) if self._filter else (row_index,)
-        return self.db.execute(query.strip(), params).fetchone()
+        if row_index >= len(self._row_ids):
+            return None
+        row_id = self._row_ids[row_index]
+        return self.db.execute(
+            f"SELECT {self.columns_sql} FROM base_entities WHERE id = ?",
+            (row_id,)
+        ).fetchone()
+
 
     def populate_db(self):
         try:
-            self.db.execute("DROP TABLE entities")
+            self.db.execute("DROP TABLE IF EXISTS base_entities")
+            self.db.execute("DROP TABLE IF EXISTS fts_entities")
         except Exception as e:
             print(e)
 
+        # Create the base table and virtual table
         try:
-            self.db.execute("CREATE VIRTUAL TABLE entities USING fts5(\"STEP ID\", \"Ifc Type\", \"GUID\", \"Name\", \"STEP Line\")")
+            self.db.execute(f"CREATE TABLE base_entities (id INTEGER PRIMARY KEY,{self.columns_sql})")
         except Exception as e:
-            print(e)
+            print(f"failed to create base_entities\n{e}")
+
+        try:
+            self.db.execute(f"""CREATE VIRTUAL TABLE fts_entities USING fts5(
+                {self.columns_sql},
+                content='base_entities',
+                content_rowid='id'
+                )
+            """)
+        except Exception as e:
+            print(f"failed to create fts_entities\n{e}")
 
         try:
             batch = []
             for entity in self.ifc_model:
                 info = entity.get_info()
-                row_data = [
+                batch.append([
                     f"#{entity.id()}",        # STEP ID
                     entity.is_a(),            # Ifc Type
                     info.get("GlobalId", ""), # GUID
                     info.get("Name", ""),     # Name
                     str(entity)               # STEP Line
-                ]
-                batch.append(row_data)
+                ])
 
-            self.db.executemany("INSERT INTO entities VALUES (?, ?, ?, ?, ?)", batch)
+            self.db.execute("PRAGMA journal_mode = OFF")
+            self.db.execute("PRAGMA synchronous = OFF")
+
+            self.db.executemany(f"INSERT INTO base_entities ({self.columns_sql}) VALUES (?, ?, ?, ?, ?)", batch)
+            
+            self.db.execute("INSERT INTO fts_entities(fts_entities) VALUES ('rebuild')")
             self.db.commit()
         except Exception as e:
             print(f"Failed to populate DB\n{e}")
@@ -149,8 +175,15 @@ class IfcViewer(QMainWindow):
         self.middle_view = QTableView()
         self.middle_view.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.middle_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.middle_view.setSortingEnabled(True)
-        self.middle_view.resizeColumnsToContents()
+        self.middle_view.setSortingEnabled(False)
+        self.middle_view.verticalHeader().setDefaultSectionSize(20)
+        self.middle_view.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.middle_view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+
+        self.middle_view.setWordWrap(False)
+        for i in range(4): # TODO: Check column width
+            self.middle_view.setColumnWidth(i, 100)
+            
         self.middle_view.horizontalHeader().setStretchLastSection(True)
         self.middle_view.verticalHeader().setVisible(False)
         self.middle_view.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -322,7 +355,7 @@ class IfcViewer(QMainWindow):
         self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
 
     def search_db(self, text):
-        cursor = self.db.execute("SELECT id, mark, global_id, name, type FROM entities WHERE fulltext MATCH ?", (text,))
+        cursor = self.middle_model.search(text)
         return cursor.fetchall()
 
     def create_entity_label(self, entity):
