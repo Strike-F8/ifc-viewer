@@ -139,6 +139,8 @@ class AssemblyViewerWindow(QMainWindow):
             self.find_material(object)
             self.add_forward_references_to_graph(object)
             self.add_reverse_references_to_graph(object)
+        
+        # TODO: Remove unnecessary references from IfcRelAssociatesMaterial
 
         # Visualize graph using Pyside graph
         self.viewer = IFCGraphViewer(self.G)
@@ -183,7 +185,7 @@ class AssemblyViewerWindow(QMainWindow):
     def find_ifc_rel_aggregates(self, assembly):
         ifc_rel_aggregates = None
         
-        for entity in self.model.get_inverse(assembly):
+        for entity in self.ifc_model.get_inverse(assembly):
             if entity.is_a() == "IfcRelAggregates":
                 ifc_rel_aggregates = entity
                 print(f"Found {ifc_rel_aggregates}\nfor {assembly}")
@@ -210,7 +212,7 @@ class AssemblyViewerWindow(QMainWindow):
     def find_material(self, object):
         # get the IfcRelAssociatesMaterial entity that references this object
         ifc_rel_associates_material = None
-        for entity in self.model.get_inverse(object):
+        for entity in self.ifc_model.get_inverse(object):
             if entity.is_a() == "IfcRelAssociatesMaterial":
                 ifc_rel_associates_material = entity
                 print(f"Found {ifc_rel_associates_material}\nfor {object}")
