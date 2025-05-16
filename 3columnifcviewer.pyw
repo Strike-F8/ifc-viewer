@@ -94,9 +94,16 @@ class SqlEntityTableModel(QAbstractTableModel):
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid() or role != Qt.DisplayRole:
             return None
+
         row = self._get_row(index.row())
         if not row:
             return None
+
+        column_name = self._columns[index.column()]
+
+        if column_name == "STEP ID": # If this is a step id, add a # to the beginning
+            return f"#{row[column_name]}"
+
         return row[self._columns[index.column()]]
 
     @functools.lru_cache(maxsize=4096)
@@ -138,7 +145,7 @@ class SqlEntityTableModel(QAbstractTableModel):
             for entity in self.ifc_model:
                 info = entity.get_info()
                 batch.append([
-                    f"#{entity.id()}",        # STEP ID
+                    entity.id(),        # STEP ID
                     entity.is_a(),            # Ifc Type
                     info.get("GlobalId", ""), # GUID
                     info.get("Name", ""),     # Name
