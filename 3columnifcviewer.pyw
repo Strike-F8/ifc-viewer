@@ -140,7 +140,7 @@ class SqlEntityTableModel(QAbstractTableModel):
                 {self.columns_sql},
                 content='base_entities',
                 content_rowid='id',
-                tokenize='porter',
+                tokenize='trigram remove_diacritics 1',
                 prefix='2,3'
                 )
             """)
