@@ -29,7 +29,8 @@ class _UpdateFilterEvent(QEvent):
 class SqlEntityTableModel(QAbstractTableModel):
     def __init__(self, ifc_model, file_path):
         super().__init__()
-        db_path = f"db/{os.path.basename(file_path)}.sqlite3"
+        #db_path = f"db/{os.path.basename(file_path)}.sqlite3"
+        db_path = ":memory:"
         self.file_path = file_path
         self.ifc_model = ifc_model
         os.makedirs("db", exist_ok=True) # Make the db folder if it doesn't exist
@@ -159,13 +160,21 @@ class SqlEntityTableModel(QAbstractTableModel):
                     str(entity)               # STEP Line
                 ])
 
+            # DB optimizations for faster inserts
             self.db.execute("PRAGMA journal_mode = OFF")
             self.db.execute("PRAGMA synchronous = OFF")
+            self.db.execute("PRAGMA locking_mode = EXCLUSIVE")
+            self.db.execute("PRAGMA temp_store = MEMORY")
+            self.db.execute("PRAGMA cache_size = -100000")  # Approx. 100MB
 
+            # Execute all inserts in one batch
+            self.db.execute("BEGIN TRANSACTION")
             self.db.executemany(f"INSERT INTO base_entities ({self.columns_sql}) VALUES (?, ?, ?, ?, ?)", batch)
-            
+            self.db.execute("COMMIT")
+
             self.db.execute("INSERT INTO fts_entities(fts_entities) VALUES ('rebuild')")
             self.db.commit()
+
         except Exception as e:
             print(f"Failed to populate DB\n{e}")
 
@@ -275,7 +284,7 @@ class IfcViewer(QMainWindow):
     def add_filter_bar(self):
         self.filter_bar = QLineEdit(self)
         self.filter_bar.setPlaceholderText("Press ENTER to filter entities...")
-        self.filter_bar.returnPressed.connect(self.apply_filter)
+        self.filter_bar.textChanged.connect(self.apply_filter)
     
     def add_filter_button(self):
         self.filter_button = QPushButton(self)
