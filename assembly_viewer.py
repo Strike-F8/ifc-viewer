@@ -1,6 +1,8 @@
 from collections import defaultdict
 from collections.abc import Iterable
 import ifcopenshell
+from ifcopenshell import util
+
 from PySide6.QtWidgets import (
     QTableView, QLabel, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout,
     QAbstractItemView, QPushButton
@@ -118,11 +120,25 @@ class AssemblyViewerWindow(QMainWindow):
         #       Right now, this function only gets the overall geometry of the assembly parts
 
         self.G.clear() # Reset the graph for the new export
+        assembly_objects = None
         for entity in selected_entities:
+            # NEW: Make a list of objects that make up the assembly
+            # Get the properties of each object
+            # i.e. Geometry, materials, openings
+            
+            assembly_objects = self.find_assembly_objects(entity) 
+            
+            # OLD: recursively find entities related to the assemblies
             # Add the forward references of the starting entity to the graph
-            self.add_forward_references_to_graph(entity)
+            #self.add_forward_references_to_graph(entity)
             # Add the reverse references of the starting entity to the graph
-            self.add_reverse_references_to_graph(entity)
+            #self.add_reverse_references_to_graph(entity)
+
+        # Find related entities for each object
+        for object in assembly_objects:
+            self.find_material(object)
+            self.add_forward_references_to_graph(object)
+            self.add_reverse_references_to_graph(object)
 
         # Visualize graph using Pyside graph
         self.viewer = IFCGraphViewer(self.G)
@@ -163,6 +179,53 @@ class AssemblyViewerWindow(QMainWindow):
         for referrer in self.ifc_model.get_inverse(entity):
             self.add_reverse_references_to_graph(referrer)
             self.add_forward_references_to_graph(referrer)
+    
+    def find_ifc_rel_aggregates(self, assembly):
+        ifc_rel_aggregates = None
+        
+        for entity in self.model.get_inverse(assembly):
+            if entity.is_a() == "IfcRelAggregates":
+                ifc_rel_aggregates = entity
+                print(f"Found {ifc_rel_aggregates}\nfor {assembly}")
+                break
+
+        if ifc_rel_aggregates:
+            self.G.add_node(ifc_rel_aggregates.id(), entity=ifc_rel_aggregates)
+            self.G.add_edge(assembly.id(), ifc_rel_aggregates.id())
+
+        return ifc_rel_aggregates
+
+    def find_assembly_objects(self, assembly):
+        # Find the IfcRelAggregates entity that references this assembly
+        ifc_rel_aggregates = self.find_ifc_rel_aggregates(assembly)
+
+        related_objects = ifc_rel_aggregates.RelatedObjects
+
+        for object in related_objects:
+            self.G.add_node(object.id(), entity=object)
+            self.G.add_edge(object.id(), ifc_rel_aggregates.id())
+        
+        return related_objects
+
+    def find_material(self, object):
+        # get the IfcRelAssociatesMaterial entity that references this object
+        ifc_rel_associates_material = None
+        for entity in self.model.get_inverse(object):
+            if entity.is_a() == "IfcRelAssociatesMaterial":
+                ifc_rel_associates_material = entity
+                print(f"Found {ifc_rel_associates_material}\nfor {object}")
+                self.G.add_node(entity.id(), entity=entity)
+                self.G.add_edge(object.id(), entity.id())
+                break
+
+       # TODO: Truncate the reference list in ifc_rel_associates_material to only include the objects we are exporting 
+        if ifc_rel_associates_material:
+            material = ifc_rel_associates_material.RelatingMaterial
+            self.G.add_node(material.id(), entity=material)
+            self.G.add_edge(ifc_rel_associates_material.id(), material.id())
+            return ifc_rel_associates_material.RelatingMaterial
+
+        return "NO MATERIAL"
 
     def export_assemblies_to_file(self):
         output_path = "assemblies.ifc"
