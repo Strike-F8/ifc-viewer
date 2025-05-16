@@ -199,6 +199,12 @@ class AssemblyViewerWindow(QMainWindow):
         for node in self.G.nodes:
             output_model.add(self.G.nodes[node]['entity'])
         
+        # Remove IfcGrid and IfcGridAxis
+        # TODO: Make this a toggle
+        for entity in list(output_model):
+            if entity.is_a() in ("IfcGridAxis", "IfcGrid"):
+                output_model.remove(entity)
+            
         output_model.write(output_path)
             
     def get_children(self, entity):
