@@ -259,7 +259,7 @@ class IfcViewer(QMainWindow):
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
 
         toolbar.addAction(QAction("Open File", self, triggered=self.open_ifc_file))
-        #toolbar.addAction(QAction("Display Entities", self, triggered=self.load_entities)) # Large files take a long time 
+        toolbar.addAction(QAction("Load Entities", self, triggered=self.load_db)) # Large files take a long time 
                                                                                         # so only load entities when the user clicks the button
         toolbar.addAction(QAction("Assembly Exporter", self, triggered=self.show_assemblies_window))
 
@@ -340,6 +340,7 @@ class IfcViewer(QMainWindow):
             self.ifc_model = ifcopenshell.open(file_path)
             self.file_path = file_path
 
+            self.middle_view.setModel(None)
             self.left_model.removeRows(0, self.left_model.rowCount())
             self.right_model.removeRows(0, self.right_model.rowCount())
 
@@ -352,7 +353,8 @@ class IfcViewer(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
-
+    
+    def load_db(self):
         self.middle_model = SqlEntityTableModel(ifc_model=self.ifc_model, file_path=self.file_path)
         self.middle_view.setModel(self.middle_model)
         self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
