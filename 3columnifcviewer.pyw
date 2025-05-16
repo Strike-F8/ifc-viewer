@@ -5,6 +5,7 @@ import ifcopenshell
 import concurrent.futures
 import sqlite3
 import functools
+import re
 
 from assembly_viewer import AssemblyViewerWindow
 
@@ -143,14 +144,14 @@ class SqlEntityTableModel(QAbstractTableModel):
 
         try:
             batch = []
-            for entity in self.ifc_model:
+            for entity in list(self.ifc_model):
                 info = entity.get_info()
                 batch.append([
-                    entity.id(),        # STEP ID
-                    entity.is_a(),            # Ifc Type
-                    info.get("GlobalId", ""), # GUID
-                    info.get("Name", ""),     # Name
-                    str(entity)               # STEP Line
+                    entity.id(),                    # STEP ID
+                    entity.is_a(),                  # Ifc Type
+                    info.get("GlobalId", ""),       # GUID
+                    info.get("Name", ""),           # Name
+                    self.generate_step_line(str(entity)) # If the step line contains a long list of references, truncate the list and keep everything else
                 ])
 
             # DB optimizations for faster inserts
@@ -170,6 +171,21 @@ class SqlEntityTableModel(QAbstractTableModel):
 
         except Exception as e:
             print(f"Failed to populate DB\n{e}")
+    
+    def generate_step_line(self, step_line, max_refs=2):
+        if len(step_line) < 200:
+            return step_line
+
+        def replacer(match):
+            refs = [r.strip() for r in match.group(1).split(',')]
+            truncated = refs[:max_refs]
+            removed_count = len(refs) - max_refs
+            if removed_count > 0:
+                return f"({','.join(truncated)}...+{removed_count} more)"
+            else:
+                return f"({','.join(truncated)})"
+
+        return re.sub(r'\((#\d+(?:,\s*#\d+)*)\)', replacer, step_line, count=1)
 
 class IfcViewer(QMainWindow):
     def __init__(self, ifc_file=None):
