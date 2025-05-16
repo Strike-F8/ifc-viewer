@@ -6,3 +6,5 @@
 *.spec
 *.cpython*
 /*db
+*.db
+*.sqlite*
