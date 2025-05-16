@@ -19,13 +19,6 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 # TODO: When exporting assemblies, get all geometry including openings and materials
 # TODO: Implement SQLite for better performance with large ifc files
 
-class _UpdateFilterEvent(QEvent):
-    EVENT_TYPE = QEvent.Type(QEvent.registerEventType())
-
-    def __init__(self, results):
-        super().__init__(self.EVENT_TYPE)
-        self.results = results
-
 class SqlEntityTableModel(QAbstractTableModel):
     def __init__(self, ifc_model, file_path):
         super().__init__()
