@@ -50,7 +50,7 @@ class SqlEntityTableModel(QAbstractTableModel):
             safe_filter = self._filter.replace("'", "''") + "*"  # Add wildcard for partial match
             query = f"""
                 SELECT rowid FROM fts_entities
-                WHERE fts_entities MATCH '{safe_filter}'
+                WHERE fts_entities MATCH "{safe_filter}"
                 ORDER BY {self._sort_column} {self._sort_order}
             """
             rows = self.db.execute(query)
@@ -136,7 +136,6 @@ class SqlEntityTableModel(QAbstractTableModel):
                 content='base_entities',
                 content_rowid='id',
                 tokenize='trigram remove_diacritics 1',
-                prefix='2,3'
                 )
             """)
         except Exception as e:
