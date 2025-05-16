@@ -3,7 +3,8 @@ import os
 import json
 import ifcopenshell
 import concurrent.futures
-import re
+import sqlite3
+import functools
 
 from assembly_viewer import AssemblyViewerWindow
 
@@ -12,13 +13,11 @@ from PySide6.QtWidgets import (
     QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView
 )
 from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt, QAbstractTableModel, QEvent
+from PySide6.QtCore import Qt, QAbstractTableModel, QEvent, QModelIndex
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 # TODO: When exporting assemblies, get all geometry including openings and materials
-# TODO: Improve filtering for large files (Instead of hiding/showing, just show the relevant rows?)
-# TODO: Review character limit for middle view (shorten long lists of references but keep everything else?)
-#       e.g. #123=IfcElement('ASDFNAWEKFN',$,$,(#1, #2, #3,...+32refs), #10, #200)
+# TODO: Implement SQLite for better performance with large ifc files
 
 class _UpdateFilterEvent(QEvent):
     EVENT_TYPE = QEvent.Type(QEvent.registerEventType())
@@ -27,85 +26,108 @@ class _UpdateFilterEvent(QEvent):
         super().__init__(self.EVENT_TYPE)
         self.results = results
 
-class EntityViewModel(QAbstractTableModel):
-    def __init__(self, entities=None):
+class SqlEntityTableModel(QAbstractTableModel):
+    def __init__(self, ifc_model, file_path):
         super().__init__()
-        self.headers = ["STEP ID", "Type", "GUID", "Name", "Entity"]
-        self.entities = entities
-        self.data_list = []
-        self.entity_lookup = []
+        db_path = f"db/{os.path.basename(file_path)}.sqlite3"
+        self.file_path = file_path
+        self.ifc_model = ifc_model
+        os.makedirs("db", exist_ok=True) # Make the db folder if it doesn't exist
 
-    def rowCount(self, parent=None):
-        return len(self.data_list)
+        self.db = sqlite3.connect(db_path) # Save a database with the name of the ifc file
+        self.db.row_factory = sqlite3.Row
+        self._columns = ["STEP ID", "Ifc Type", "GUID", "Name", "STEP Line"]
 
-    def columnCount(self, parent=None):
-        return len(self.data_list[0]) if self.data_list else 0
+        # Disable journaling for increased performance as we will not be editing the database after initial insert
+        self.db.execute("PRAGMA journal_mode = OFF")
+        self.db.execute("PRAGMA synchronous = OFF")
+
+        self.populate_db()
+        self._filter = ""
+        self._sort_column = "\"STEP ID\""
+        self._sort_order = "ASC"
+        self._row_count = self._compute_row_count()
+
+    def _compute_row_count(self):
+        query = "SELECT COUNT(*) FROM entities"
+        if self._filter:
+            query += " WHERE fulltext LIKE ?"
+            return self.db.execute(query, (f"%{self._filter}%",)).fetchone()[0]
+        return self.db.execute(query).fetchone()[0]
+
+    def set_filter(self, filter_text):
+        self._filter = filter_text
+        self._row_count = self._compute_row_count()
+        self._get_row.cache_clear()
+        self.layoutChanged.emit()
+
+    def set_sort(self, column_name, ascending=True):
+        if column_name in self._columns:
+            self._sort_column = column_name
+            self._sort_order = "ASC" if ascending else "DESC"
+            self._get_row.cache_clear()
+            self.layoutChanged.emit()
+
+    def rowCount(self, parent=QModelIndex()):
+        return self._row_count
+
+    def columnCount(self, parent=QModelIndex()):
+        return len(self._columns)
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if role != Qt.DisplayRole:
+            return None
+        if orientation == Qt.Horizontal:
+            return self._columns[section].capitalize()
+        return str(section + 1)
 
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid() or role != Qt.DisplayRole:
             return None
-        row = index.row()
-        col = index.column()
-        if 0 <= row < len(self.data_list):
-            return str(self.data_list[row][col])  # For display, show string versions of each column
-        return None
-    
-    def get_entity(self, row):
-        if 0 <= row < len(self.data_list):
-            return self.entity_lookup[row]
-        return None
+        row = self._get_row(index.row())
+        if not row:
+            return None
+        return row[self._columns[index.column()]]
 
-    def headerData(self, section, orientation, role):
-        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
-            return self.headers[section]
-        return None
-    
-    def clear(self):
-        self.beginResetModel()
-        self.data_list = []
-        self.endResetModel()
+    @functools.lru_cache(maxsize=99999999)
+    def _get_row(self, row_index):
+        query = f"""
+            SELECT * FROM entities
+            {"WHERE fulltext LIKE ?" if self._filter else ""}
+            ORDER BY {self._sort_column} {self._sort_order}
+            LIMIT 1 OFFSET ?
+        """
+        params = (f"%{self._filter}%", row_index) if self._filter else (row_index,)
+        return self.db.execute(query.strip(), params).fetchone()
 
-    # Add the entities to the middle view
-    def populate_entities(self, entities):
-        self.beginResetModel()
-        self.entities = sorted(entities, key=lambda e: e.id())  # Sort by STEP ID
-        self.data_list = []
-        self.filter_cache = []
+    def populate_db(self):
+        try:
+            self.db.execute("DROP TABLE entities")
+        except Exception as e:
+            print(e)
 
-        for entity in self.entities:
-            info = entity.get_info()
-            step_id = "#" + str(entity.id())
-            global_id = info.get("GlobalId", "")
-            name = info.get("Name", "")
-            ifc_type = entity.is_a()
-            step_line = self.format_step_line(str(entity).strip()) # Get the step line of the entity to display on the table
-            
-            self.data_list.append([step_id, ifc_type, global_id, name, step_line])
-            self.entity_lookup.append(entity) # Add the entity itself to a separate list that we can lookup later
+        try:
+            self.db.execute("CREATE VIRTUAL TABLE entities USING fts5(\"STEP ID\", \"Ifc Type\", \"GUID\", \"Name\", \"STEP Line\")")
+        except Exception as e:
+            print(e)
 
-            # Build a lowercase searchable string
-            label = f"{step_id} {ifc_type} {global_id} {name}".lower()
-            self.filter_cache.append(label)
+        try:
+            batch = []
+            for entity in self.ifc_model:
+                info = entity.get_info()
+                row_data = [
+                    f"#{entity.id()}",        # STEP ID
+                    entity.is_a(),            # Ifc Type
+                    info.get("GlobalId", ""), # GUID
+                    info.get("Name", ""),     # Name
+                    str(entity)               # STEP Line
+                ]
+                batch.append(row_data)
 
-        self.endResetModel()
-    
-    def format_step_line(self, step_line, max_refs=2):
-        if len(step_line) < 200:
-            return step_line
-        else:
-            # Regex to match reference sets like (#1,#2,#3)
-            pattern = re.compile(r"\((#\d+(?:,#\d+)+)\)")
-
-            def replacer(match):
-                refs = match.group(1).split(",")
-                if len(refs) > max_refs:
-                    shown = ",".join(refs[:max_refs])
-                    more = len(refs) - max_refs
-                    return f"({shown},…+{more} more)"
-                else:
-                    return f"({match.group(1)})"
-
-            return pattern.sub(replacer, step_line)
+            self.db.executemany("INSERT INTO entities VALUES (?, ?, ?, ?, ?)", batch)
+            self.db.commit()
+        except Exception as e:
+            print(f"Failed to populate DB\n{e}")
 
 class IfcViewer(QMainWindow):
     def __init__(self, ifc_file=None):
@@ -122,10 +144,9 @@ class IfcViewer(QMainWindow):
         self.max_recent_files = 5
         self.recent_files = self.load_recent_files()
 
-        self.middle_model = EntityViewModel(self.ifc_model)
 
+        self.middle_model = None # Set this up later when the ifc file is loaded
         self.middle_view = QTableView()
-        self.middle_view.setModel(self.middle_model)
         self.middle_view.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.middle_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.middle_view.setSortingEnabled(True)
@@ -159,7 +180,6 @@ class IfcViewer(QMainWindow):
         self.right_view.expanded.connect(self.lazy_load_forward_references)
 
         # Update the views when selecting an item in the middle or left views
-        self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
         self.left_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -190,7 +210,7 @@ class IfcViewer(QMainWindow):
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
 
         toolbar.addAction(QAction("Open File", self, triggered=self.open_ifc_file))
-        toolbar.addAction(QAction("Display Entities", self, triggered=self.load_entities)) # Large files take a long time 
+        #toolbar.addAction(QAction("Display Entities", self, triggered=self.load_entities)) # Large files take a long time 
                                                                                         # so only load entities when the user clicks the button
         toolbar.addAction(QAction("Assembly Exporter", self, triggered=self.show_assemblies_window))
 
@@ -214,10 +234,6 @@ class IfcViewer(QMainWindow):
         self.search_button = QPushButton(self)
         self.search_button.setText("Filter")
         self.search_button.clicked.connect(self.start_filtering)
-
-    def load_entities(self):
-        self.middle_model.clear()
-        self.middle_model.populate_entities(list(self.ifc_model))
 
     def start_filtering(self):
         search_text = self.search_bar.text().lower()
@@ -283,16 +299,13 @@ class IfcViewer(QMainWindow):
         QApplication.clipboard().setText("\t".join(row_text))
  
     def load_ifc(self, file_path):
-        self.setWindowTitle(file_path)
+        self.setWindowTitle(os.path.basename(file_path))
         try:
             self.ifc_model = ifcopenshell.open(file_path)
             self.file_path = file_path
 
-            self.middle_model.clear()
             self.left_model.removeRows(0, self.left_model.rowCount())
             self.right_model.removeRows(0, self.right_model.rowCount())
-
-            self.load_entities()
 
             if file_path in self.recent_files:
                 self.recent_files.remove(file_path)
@@ -303,6 +316,14 @@ class IfcViewer(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
+
+        self.middle_model = SqlEntityTableModel(ifc_model=self.ifc_model, file_path=self.file_path)
+        self.middle_view.setModel(self.middle_model)
+        self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
+
+    def search_db(self, text):
+        cursor = self.db.execute("SELECT id, mark, global_id, name, type FROM entities WHERE fulltext MATCH ?", (text,))
+        return cursor.fetchall()
 
     def create_entity_label(self, entity):
         # get the attributes and attribute labels from the entity
