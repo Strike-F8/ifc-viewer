@@ -18,6 +18,7 @@ from PySide6.QtCore import Qt, QAbstractTableModel, QEvent, QModelIndex
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 # TODO: When exporting assemblies, get all geometry including openings and materials
 # TODO: Implement SQLite for better performance with large ifc files
+# TODO: Implement SQLite for better performance with large ifc files
 
 class _UpdateFilterEvent(QEvent):
     EVENT_TYPE = QEvent.Type(QEvent.registerEventType())
@@ -135,6 +136,8 @@ class IfcViewer(QMainWindow):
         self.setWindowTitle("IFC Reference Viewer")
         self.file_path = ifc_file
         self.filter_cache = []
+
+        self.setup_db()
 
         if ifc_file:
             self.ifc_model = self.load_ifc(self.file_path)
@@ -313,6 +316,14 @@ class IfcViewer(QMainWindow):
             self.recent_files = self.recent_files[:self.max_recent_files]
             self.update_recent_files_menu()
             self.save_recent_files()
+
+        try:
+            self.db = sqlite3.connect(f"db/{os.path.basename(file_path)}") # Save a database with the name of the ifc file
+            self.db.execute("CREATE VIRTUAL TABLE entities USING fts5(id, mark, global_id, name, type, fulltext)")
+
+            for row in self.ifc_model.entities:
+                fulltext = " ".join(str(x) for x in row[:-1])  # Exclude `entity` object
+                self.db.execute("INSERT INTO entities VALUES (?, ?, ?, ?, ?, ?)", (*row[:-1], fulltext))
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
