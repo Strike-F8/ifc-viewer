@@ -10,11 +10,11 @@ import re
 from assembly_viewer import AssemblyViewerWindow
 
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget,
+    QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget, QLabel,
     QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView, QHeaderView
 )
 from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt, QAbstractTableModel, QEvent, QModelIndex, QThread, Signal
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 # TODO: When exporting assemblies, get all geometry including openings and materials
@@ -201,7 +201,6 @@ class IfcViewer(QMainWindow):
         self.max_recent_files = 5
         self.recent_files = self.load_recent_files()
 
-
         self.middle_model = None # Set this up later when the ifc file is loaded
         self.middle_view = QTableView()
         self.middle_view.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -235,6 +234,7 @@ class IfcViewer(QMainWindow):
         self.right_view.customContextMenuRequested.connect(lambda pos, v=self.right_view: self.show_context_menu(pos, v))
 
         self.add_toolbar()
+        self.add_status_label()
         self.add_file_menu()
         self.add_filter_bar()
         self.add_filter_button()
@@ -255,6 +255,7 @@ class IfcViewer(QMainWindow):
         search_layout = QHBoxLayout()
         search_layout.addWidget(self.filter_bar)
         search_layout.addWidget(self.filter_button)
+        center_layout.addWidget(self.status_label)
         center_layout.addLayout(search_layout)
         center_layout.addWidget(splitter)
         container = QWidget()
@@ -277,6 +278,11 @@ class IfcViewer(QMainWindow):
         toolbar.addAction(QAction("Load Entities", self, triggered=self.load_db)) # Large files take a long time 
                                                                                         # so only load entities when the user clicks the button
         toolbar.addAction(QAction("Assembly Exporter", self, triggered=self.show_assemblies_window))
+
+    def add_status_label(self):
+        self.status_label = QLabel("＜ーChoose an IFC file to open")
+        self.status_label.setMinimumHeight(20)
+        self.status_label.setMaximumHeight(35)
 
     def add_file_menu(self):
         self.menubar = self.menuBar()
@@ -366,10 +372,13 @@ class IfcViewer(QMainWindow):
             self.recent_files = self.recent_files[:self.max_recent_files]
             self.update_recent_files_menu()
             self.save_recent_files()
-
+        
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
-    
+        status_text = f"Loaded \"{os.path.basename(file_path)}\"\nPress the \"Load Entities\" button to view the contents"
+
+        self.status_label.setText(status_text)
+        
     def load_db(self):
         self.middle_model = SqlEntityTableModel(ifc_model=self.ifc_model, file_path=self.file_path)
         self.middle_view.setModel(self.middle_model)
@@ -444,6 +453,8 @@ class IfcViewer(QMainWindow):
             entity = self.left_model.itemFromIndex(index).data()
             # Update the right view
             self.populate_right_view(entity)
+        
+        self.status_label.setText(f"Selected entity #{entity.id()}")
 
     def populate_right_view(self, entity):
         self.right_model.removeRows(0, self.right_model.rowCount())
