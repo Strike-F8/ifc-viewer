@@ -208,7 +208,6 @@ class AssemblyViewerWindow(QMainWindow):
 
         # 3. TODO: Save related entities with their original step ids
         # 4. Output to a new IFC file
-        #       TODO: Preferably with a file save dialog
         self.export_assemblies_to_file()
 
     def add_forward_references_to_graph(self, entity):
@@ -357,9 +356,8 @@ class AssemblyViewerWindow(QMainWindow):
         return result
             
     def get_assembly_mark(self, assembly):
-        parents = self.ifc_model.get_inverse(assembly)
-        for parent in parents:
-            if parent.is_a() == "IfcRelDefinesByProperties":
+        for parent in assembly.IsDefinedBy: # Use a precomputed reverse index instead of get_inverse
+            if parent.is_a("IfcRelDefinesByProperties"):
                 property_set = parent.RelatingPropertyDefinition
                 for property in property_set.HasProperties:
                     if property.is_a("IfcPropertySingleValue"):
