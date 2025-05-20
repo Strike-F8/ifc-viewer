@@ -24,26 +24,28 @@ class SqlEntityTableModel(QAbstractTableModel):
     def __init__(self, ifc_model, file_path):
         super().__init__()
         #db_path = f"db/{os.path.basename(file_path)}.sqlite3"
-        db_path = ":memory:"
-        self.file_path = file_path
-        self.ifc_model = ifc_model
+        db_path = ":memory:" # Keep the database in memory for performance
+                             # Can be exported to a file if needed
+        self.file_path = file_path # The filepath of the ifc file
+        self.ifc_model = ifc_model # The "file" object from ifcopenshell
         os.makedirs("db", exist_ok=True) # Make the db folder if it doesn't exist
 
-        self.db = sqlite3.connect(db_path) # Save a database with the name of the ifc file
+        self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row
         self._columns = ["STEP ID", "Ifc Type", "GUID", "Name", "STEP Line"]
-        self.columns_sql = ", ".join(f'"{col}"' for col in self._columns) # Define the columns here only to prevent discrepancies
+        self.columns_sql = ", ".join(f'"{col}"' for col in self._columns) # Define the columns here and use this variable throughout the program
 
-        self.populate_db()
+        self.populate_db() # Add entites from the ifc model to the database
 
-        self._filter = ""
+        self._filter = "" # At first, there is no filter
         self._filter_params = ()
         self._row_ids = []
-        self._sort_column = "\"STEP ID\""
+        self._sort_column = "\"STEP ID\"" # Sort by step id
         self._sort_order = "ASC"
 
         self._load_row_ids()
 
+    # Uses the filter text provided by the user to filter the display
     def _load_row_ids(self):
         if self._filter:
             # Escape single quotes inside filter string for SQL
@@ -64,12 +66,15 @@ class SqlEntityTableModel(QAbstractTableModel):
         self._row_ids = [row[0] for row in rows]
         self._row_count = len(self._row_ids)
 
+    # Get the filter text from the main window and filter the database
     def set_filter(self, filter_text):
         self._filter = filter_text.strip()
         self._load_row_ids()
         self._get_row.cache_clear()
         self.layoutChanged.emit()
 
+    # Sorts the database view. However, it only works for the initial sort
+    # TODO: Allow the user to sort
     def set_sort(self, column_name, ascending=True):
         if column_name in self._columns:
             self._sort_column = column_name
@@ -102,11 +107,14 @@ class SqlEntityTableModel(QAbstractTableModel):
         column_name = self._columns[index.column()]
 
         if column_name == "STEP ID": # If this is a step id, add a # to the beginning
+                                     # Step ids are stored as integers so the # symbol must be added
             return f"#{row[column_name]}"
 
         return row[self._columns[index.column()]]
 
-    @functools.lru_cache(maxsize=4096)
+    # Gets a row from the database by id
+    # TODO: The cache probably helps but we should get the rows in batches instead of individually
+    @functools.lru_cache(maxsize=4096) # _get_row is called many times so use a cache to optimize performance
     def _get_row(self, row_index):
         if row_index >= len(self._row_ids):
             return None
@@ -117,6 +125,7 @@ class SqlEntityTableModel(QAbstractTableModel):
         ).fetchone()
 
 
+    # Initial population of the database with entities from the ifc model
     def populate_db(self):
         try:
             self.db.execute("DROP TABLE IF EXISTS base_entities")
