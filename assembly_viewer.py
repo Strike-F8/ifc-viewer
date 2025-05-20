@@ -1,13 +1,12 @@
 from collections import defaultdict
 from collections.abc import Iterable
 import ifcopenshell
-from ifcopenshell import util
 
 from PySide6.QtWidgets import (
     QTableView, QLabel, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout,
-    QAbstractItemView, QPushButton
+    QAbstractItemView, QPushButton, QFileDialog, QHBoxLayout, QComboBox, QComboBox
 )
-from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel
+from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QSettings
 
 import networkx as nx
 from ifc_graph_viewer import IFCGraphViewer
@@ -57,6 +56,8 @@ class AssemblyTableModel(QAbstractTableModel):
 class AssemblyViewerWindow(QMainWindow):
     def __init__(self, ifc_model, title=None, parent=None):
         super().__init__(parent)
+        # Initialize app settings
+        self.init_settings()
 
         self.title = title
         if self.title:
@@ -74,7 +75,9 @@ class AssemblyViewerWindow(QMainWindow):
         self.instructions.setWordWrap(True)
 
         self.add_assembly_export_button()
+        self.add_file_layout()
 
+        layout.addLayout(self.file_layout)
         layout.addWidget(self.instructions)
         layout.addWidget(self.assembly_export_button)
 
@@ -93,10 +96,56 @@ class AssemblyViewerWindow(QMainWindow):
 
         # Create a directed graph to represent the forward and reverse references for the assemblies to be exported
         self.G = nx.DiGraph()
+    
+    def init_settings(self):
+        self.settings = QSettings("Taiwa", "IFCAssemblyExporter")
+        self.recent_paths = self.settings.value("recent_paths", ["assemblies.ifc"])
 
     def add_assembly_export_button(self):
         self.assembly_export_button = QPushButton("Export", self)
         self.assembly_export_button.clicked.connect(self.export_assemblies)
+
+    def add_file_layout(self):
+        self.recent_paths = ["assemblies.ifc"]
+
+        file_layout = QHBoxLayout()
+
+        self.file_path_combo = QComboBox(self)
+        self.file_path_combo.setEditable(True)
+        self.file_path_combo.addItems(self.recent_paths)
+        self.file_path_combo.setCurrentText(self.recent_paths[0])
+
+        self.browse_button = QPushButton("Browse...", self)
+        self.browse_button.clicked.connect(self.browse_output_path)
+    
+        file_layout.addWidget(self.file_path_combo)
+        file_layout.addWidget(self.browse_button)
+
+        self.file_layout = file_layout
+    
+    def browse_output_path(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Select destination file",
+            self.file_path_combo.currentText(),
+            "IFC Files (*.ifc);;All Files(*)"
+        )
+        if path:
+            self.update_recent_paths(path)
+    
+    def update_recent_paths(self, new_path):
+        if new_path in self.recent_paths:
+            self.recent_paths.remove(new_path) # We want to keep this path but move it to the top
+
+        self.recent_paths.insert(0, new_path) # Insert at top
+        self.recent_paths = self.recent_paths[:10] # Keep the 10 most recent paths
+        
+        self.file_path_combo.clear()
+        self.file_path_combo.addItems(self.recent_paths)
+        self.file_path_combo.setCurrentText(new_path)
+
+        # Save the recent paths to a file
+        self.settings.setValue("recent_paths", self.recent_paths)
 
     def export_assemblies(self):
         # 1. Get the list of selected assemblies
@@ -230,7 +279,7 @@ class AssemblyViewerWindow(QMainWindow):
         return "NO MATERIAL"
 
     def export_assemblies_to_file(self):
-        output_path = "assemblies.ifc"
+        output_path = self.file_path_combo.currentText()
 
         print(f"Exporting {len(self.G)} entities to {output_path}")
         # Prepare the model for output
