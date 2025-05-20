@@ -11,6 +11,9 @@ from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QSettings
 import networkx as nx
 from ifc_graph_viewer import IFCGraphViewer
 
+def is_iterable(obj):
+    return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
+
 class AssemblyTableModel(QAbstractTableModel):
     def __init__(self, assemblies, parent=None):
         super().__init__(parent)
@@ -150,11 +153,13 @@ class AssemblyViewerWindow(QMainWindow):
         # Save the recent paths to a file
         self.settings.setValue("recent_paths", self.recent_paths)
 
+    # Triggered by the export button
     def export_assemblies(self):
         # 1. Get the list of selected assemblies
         selected_indexes = self.assembly_table.selectionModel().selectedRows()
         selected_entities = []
 
+        # Get the actual entities that were selected
         for index in selected_indexes:
             entity = self.model.data(index, Qt.UserRole)
             if entity:
@@ -174,11 +179,20 @@ class AssemblyViewerWindow(QMainWindow):
         self.G.clear() # Reset the graph for the new export
         assembly_objects = None
         for entity in selected_entities:
+            # EVEN NEWER: Use the schema definition to find precomputed reverse and forward references of entities
+            #             without having to traverse the model at all
+
+            references = self.get_all_entity_references(entity) # Get all forward and reverse references of the current entity
+            # Maybe this is enough to export?
+
+            self.G.add_node(entity, color='red') # Color as red because it is one of the assemblies selected by the user
+            self.add_references_to_graph(entity, references)
+
             # NEW: Make a list of objects that make up the assembly
             # Get the properties of each object
             # i.e. Geometry, materials, openings
             
-            assembly_objects = self.find_assembly_objects(entity) 
+            #assembly_objects = self.find_assembly_objects(entity) 
             
             # OLD: recursively find entities related to the assemblies
             # Add the forward references of the starting entity to the graph
@@ -187,28 +201,69 @@ class AssemblyViewerWindow(QMainWindow):
             #self.add_reverse_references_to_graph(entity)
 
         # Find related entities for each object
-        for object in assembly_objects:
-            self.find_material(object)
-            self.add_forward_references_to_graph(object)
-            self.add_reverse_references_to_graph(object)
+        #for object in assembly_objects:
+        #    self.find_material(object)
+        #    self.add_forward_references_to_graph(object)
+        #    self.add_reverse_references_to_graph(object)
         
         # TODO: Remove unnecessary references from IfcRelAssociatesMaterial
 
         # Visualize graph using Pyside graph
-        self.viewer = IFCGraphViewer(self.G)
+        #self.viewer = IFCGraphViewer(self.G, selected_entities)
 
         # Add to a dockable widget
-        if self.title:
-            dock = QDockWidget(f"Graph of {self.title}", self)
-        else:
-            dock = QDockWidget("Graph view", self)
-            
-        dock.setWidget(self.viewer)
-        self.addDockWidget(Qt.RightDockWidgetArea, dock)
+       # if self.title:
+       #     dock = QDockWidget(f"Graph of {self.title}", self)
+       # else:
+       #     dock = QDockWidget("Graph view", self)
+       #     
+       # dock.setWidget(self.viewer)
+       # self.addDockWidget(Qt.RightDockWidgetArea, dock)
 
         # 3. TODO: Save related entities with their original step ids
         # 4. Output to a new IFC file
         self.export_assemblies_to_file()
+
+    def add_references_to_graph(self, current_entity, references):
+        # Iterate over the references
+        for attribute_name, entity_list in references.items():
+            for entity in entity_list:
+                self.G.add_node(entity, color='green')
+                self.G.add_edge(current_entity, entity)
+
+    # Iterate through all attributes of an entity looking for attributes that contain forward or inverse references
+    # Returns a list of all references without determining if they are forwards or reverse
+    # This only returns references that are stored as attributes within the given entity
+    # model.get_inverse() returns all reverse references including those not known by the entity but hopefully this is enough
+    # because get_inverse() is slow
+    def get_all_entity_references(self, entity):
+        references = {}
+
+        for attr_name in dir(entity):
+            if attr_name.startswith('_'):
+                continue
+
+            try:
+                value = getattr(entity, attr_name)
+            except Exception:
+                continue
+
+            # Case 1: attribute is an iterable of entities
+            if is_iterable(value):
+                if all(hasattr(item, 'is_a') for item in value):
+                    references[attr_name] = list(value)
+
+            # Case 2: attribute is a single entity
+            elif hasattr(value, 'is_a'):
+                references[attr_name] = [value]
+
+        print(f"Found {len(references)} references for {entity}")
+        for ref in references:
+            print(ref)
+        
+        print(references['ReferencedBy'])
+
+        return references
 
     def add_forward_references_to_graph(self, entity):
         self.G.add_node(entity.id(), entity=entity)
@@ -229,7 +284,7 @@ class AssemblyViewerWindow(QMainWindow):
     def add_reverse_references_to_graph(self, entity):
         self.G.add_node(entity.id(), entity=entity)
 
-        for referrer in self.ifc_model.get_inverse(entity):
+        for referrer in get_inverse_attrbute_names(entity): # Instead of get_inverse, use all the precomputed reverse references
             self.add_reverse_references_to_graph(referrer)
             self.add_forward_references_to_graph(referrer)
     
@@ -237,7 +292,7 @@ class AssemblyViewerWindow(QMainWindow):
         ifc_rel_aggregates = None
         
         for entity in self.ifc_model.get_inverse(assembly):
-            if entity.is_a() == "IfcRelAggregates":
+            if entity.is_a("IfcRelAggregates"):
                 ifc_rel_aggregates = entity
                 print(f"Found {ifc_rel_aggregates}\nfor {assembly}")
                 break
@@ -264,7 +319,7 @@ class AssemblyViewerWindow(QMainWindow):
         # get the IfcRelAssociatesMaterial entity that references this object
         ifc_rel_associates_material = None
         for entity in self.ifc_model.get_inverse(object):
-            if entity.is_a() == "IfcRelAssociatesMaterial":
+            if entity.is_a("IfcRelAssociatesMaterial"):
                 ifc_rel_associates_material = entity
                 print(f"Found {ifc_rel_associates_material}\nfor {object}")
                 self.G.add_node(entity.id(), entity=entity)
@@ -313,7 +368,8 @@ class AssemblyViewerWindow(QMainWindow):
 
         # Add the assemblies we want to export
         for node in self.G.nodes:
-            output_model.add(self.G.nodes[node]['entity'])
+            print(f"outputting {node}")
+            output_model.add(node)
         
         # Remove IfcGrid and IfcGridAxis
         # TODO: Make this a toggle
@@ -337,6 +393,7 @@ class AssemblyViewerWindow(QMainWindow):
             elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
                 children.extend([v for v in value if isinstance(v, ifcopenshell.entity_instance)])
         return children
+    
     
     def find_assemblies(self):
         # Each IfcElementAssembly represents one assembly

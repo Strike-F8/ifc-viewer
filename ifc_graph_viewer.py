@@ -21,9 +21,10 @@ class GraphNode(QGraphicsEllipseItem):
 
 class IFCGraphViewer(QGraphicsView):
     _isScrolling = _isSpacePressed = False
-    def __init__(self, ifc_graph, parent=None):
+    def __init__(self, ifc_graph, center_entities, parent=None):
         super(IFCGraphViewer, self).__init__(parent)
 
+        self.center_entities = center_entities
         self.G = ifc_graph
         self.scene = QGraphicsScene(self)
 
@@ -107,7 +108,9 @@ class IFCGraphViewer(QGraphicsView):
 
     def draw_graph(self):
         self.scene.clear()
-        pos = nx.spring_layout(self.G, scale=600, k=150, iterations=50)  # Layout
+        subgraph = nx.ego_graph(self.G, self.center_entities[0], radius=2)  # Limit to N-hops
+        pos = nx.spring_layout(subgraph, scale=600, k=150, iterations=50)
+
 
         # Draw nodes
         for node_id, (x, y) in pos.items():
