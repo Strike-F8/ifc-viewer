@@ -180,7 +180,10 @@ class AssemblyViewerWindow(QMainWindow):
             self.G.add_node(entity.id(), entity=entity, color='red') # Color as red because it is one of the assemblies selected by the user
 
             # Add the forward references of the assembly to the graph(TODO:maybe not necessary)
-            #self.add_forward_references_to_graph(entity)
+            # self.add_forward_references_to_graph(entity)
+
+            # Get the IfcRelContainedInSpatialStructure for each assembly
+            self.find_ifc_rel_contained_in_spatial_structure(entity)
 
             # Find the objects that make up the current assembly 
             assembly_objects.extend(self.find_assembly_objects(entity))
@@ -188,9 +191,17 @@ class AssemblyViewerWindow(QMainWindow):
         # TODO: Make sure we aren't adding unnecessary entities in this step
         for object in assembly_objects:
             # Get the materials for each object
-            self.find_material(object)
+            #self.find_material(object)
             # Get the voids\opening elements for each object
             self.find_voids_elements(object)
+
+            # Get the children of each object (Geometry)
+            children = self.get_children(object)
+            for child in children:
+                self.G.add_node(child.id(), entity=child)
+                self.G.add_edge(object.id(), child.id())
+            
+
 
         # 3. TODO: Save related entities with their original step ids
         # 4. Output to a new IFC file
@@ -289,6 +300,12 @@ class AssemblyViewerWindow(QMainWindow):
             voids_element = rel_voids_element.RelatedOpeningElement
             self.G.add_node(voids_element.id(), entity=voids_element)
             self.G.add_edge(rel_voids_element.id(), voids_element.id())
+    
+    def find_ifc_rel_contained_in_spatial_structure(self, object):
+        relations = object.ContainedInStructure
+        for relation in relations:
+            self.G.add_node(relation.id(), entity=relation)
+            self.G.add_edge(object.id(), relation.id())
 
     def export_assemblies_to_file(self):
         output_path = self.file_path_combo.currentText()
@@ -332,7 +349,9 @@ class AssemblyViewerWindow(QMainWindow):
         for entity in list(output_model):
             if entity.is_a() in ("IfcGridAxis", "IfcGrid"):
                 output_model.remove(entity)
-            
+        
+        # TODO: Remove objects from assemblies we didn't select from IfcRelAssociatesMaterials
+
         output_model.write(output_path)
             
     def get_children(self, entity):
