@@ -4,7 +4,7 @@ import ifcopenshell
 
 from PySide6.QtWidgets import (
     QTableView, QLabel, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout,
-    QAbstractItemView, QPushButton, QFileDialog, QHBoxLayout, QComboBox, QComboBox
+    QAbstractItemView, QPushButton, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy
 )
 from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QSettings
 
@@ -71,14 +71,14 @@ class AssemblyViewerWindow(QMainWindow):
         central_widget = QWidget()
         layout = QVBoxLayout(central_widget)
 
-        self.instructions = QLabel("Select the assemblies to be exported")
-        self.instructions.setWordWrap(True)
+        self.status_label = QLabel("Select the assemblies to be exported")
+        self.status_label.setWordWrap(True)
 
         self.add_assembly_export_button()
         self.add_file_layout()
 
         layout.addLayout(self.file_layout)
-        layout.addWidget(self.instructions)
+        layout.addWidget(self.status_label)
         layout.addWidget(self.assembly_export_button)
 
         # Table View
@@ -110,14 +110,17 @@ class AssemblyViewerWindow(QMainWindow):
 
         file_layout = QHBoxLayout()
 
+        self.file_path_label = QLabel("Output Path:", self)
         self.file_path_combo = QComboBox(self)
         self.file_path_combo.setEditable(True)
         self.file_path_combo.addItems(self.recent_paths)
         self.file_path_combo.setCurrentText(self.recent_paths[0])
+        self.file_path_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.browse_button = QPushButton("Browse...", self)
         self.browse_button.clicked.connect(self.browse_output_path)
     
+        file_layout.addWidget(self.file_path_label)
         file_layout.addWidget(self.file_path_combo)
         file_layout.addWidget(self.browse_button)
 
