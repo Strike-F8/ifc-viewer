@@ -108,13 +108,13 @@ class IFCGraphViewer(QGraphicsView):
 
     def draw_graph(self):
         self.scene.clear()
-        subgraph = nx.ego_graph(self.G, self.center_entities[0], radius=2)  # Limit to N-hops
-        pos = nx.spring_layout(subgraph, scale=600, k=150, iterations=50)
+        pos = nx.spring_layout(self.G, scale=600, k=150, iterations=50)
 
 
         # Draw nodes
         for node_id, (x, y) in pos.items():
-            entity = self.G.nodes[node_id]["entity"]
+            entity = self.G.nodes[node_id]['entity']
+            print(entity)
             label = f"{entity.is_a()} #{entity.id()}"
             node_item = GraphNode(x, y, 30, entity, label)
             self.scene.addItem(node_item)
