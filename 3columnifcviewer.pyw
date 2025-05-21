@@ -17,7 +17,6 @@ from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
-# TODO: Improve filtering as it is very inconsistent
 
 class SqlEntityTableModel(QAbstractTableModel):
     def __init__(self, ifc_model, file_path):
@@ -39,7 +38,7 @@ class SqlEntityTableModel(QAbstractTableModel):
         self._filter = "" # At first, there is no filter
         self._filter_params = ()
         self._row_ids = []
-        self._sort_column = "\"STEP ID\"" # Sort by step id
+        self._sort_column = "STEP ID" # Sort by step id
         self._sort_order = "ASC"
 
         self._load_row_ids()
@@ -50,13 +49,13 @@ class SqlEntityTableModel(QAbstractTableModel):
             query = f"""
                 SELECT rowid FROM fts_entities
                 WHERE fts_entities MATCH '"{self._filter}"'
-                ORDER BY {self._sort_column} {self._sort_order}
+                ORDER BY "{self._sort_column}" {self._sort_order}
             """
             rows = self.db.execute(query)
         else:
             query = f"""
                 SELECT id FROM base_entities
-                ORDER BY {self._sort_column} {self._sort_order}
+                ORDER BY "{self._sort_column}" {self._sort_order}
             """
             rows = self.db.execute(query)
 
@@ -72,13 +71,15 @@ class SqlEntityTableModel(QAbstractTableModel):
 
     # Sorts the database view. However, it only works for the initial sort
     # TODO: Allow the user to sort
-    def set_sort(self, column_name, ascending=True):
-        if column_name in self._columns:
-            self._sort_column = column_name
-            self._sort_order = "ASC" if ascending else "DESC"
-            self._load_row_ids()
-            self._get_row.cache_clear()
-            self.layoutChanged.emit()
+    def sort(self, column, order):
+        self._sort_column = self._columns[column]
+        if order == Qt.AscendingOrder:
+            self._sort_order = "ASC"
+        else:
+            self._sort_order = "DESC"
+        self._load_row_ids()
+        self._get_row.cache_clear()
+        self.layoutChanged.emit()
 
     def rowCount(self, parent=QModelIndex()):
         return self._row_count
@@ -210,7 +211,7 @@ class IfcViewer(QMainWindow):
         self.middle_view = QTableView()
         self.middle_view.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.middle_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.middle_view.setSortingEnabled(False)
+        self.middle_view.setSortingEnabled(True) # Enable sort requests. However, the model, not the view, will handle the sort
         self.middle_view.verticalHeader().setDefaultSectionSize(20)
         self.middle_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.middle_view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
