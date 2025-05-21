@@ -17,7 +17,6 @@ from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
-# TODO: When exporting assemblies, get all geometry including openings and materials
 # TODO: Add context menu options for copying STEP ID and GUID
 # TODO: Improve search as it is very inconsistent
 # TODO: Set middle view columns as resizeable
@@ -218,7 +217,7 @@ class IfcViewer(QMainWindow):
         self.middle_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.middle_view.setSortingEnabled(False)
         self.middle_view.verticalHeader().setDefaultSectionSize(20)
-        self.middle_view.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.middle_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.middle_view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
         self.middle_view.setWordWrap(False)
