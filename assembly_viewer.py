@@ -173,14 +173,13 @@ class AssemblyViewerWindow(QMainWindow):
         #       without getting unselected entities as well
         #       Right now, this function only gets the overall geometry of the assembly parts
 
+        self.output_model = ifcopenshell.file(schema=self.ifc_model.schema) # Ideally, this program is schema agnostic
+
         self.G.clear() # Reset the graph for the new export
         assembly_objects = []
         for assembly in selected_entities:
             # add the current assembly to the graph
             self.G.add_node(assembly.id(), entity=assembly, color='red') # Color as red because it is one of the assemblies selected by the user
-
-            # Add the forward references of the assembly to the graph(TODO:maybe not necessary)
-            # self.add_forward_references_to_graph(entity)
 
             # Get the IfcRelContainedInSpatialStructure for each assembly
             # Remove assemblies we didn't select from the relation
@@ -214,6 +213,7 @@ class AssemblyViewerWindow(QMainWindow):
         self.export_assemblies_to_file()
 
         # Visualize graph using Pyside graph
+        # TODO: Make this a toggle
         self.viewer = IFCGraphViewer(self.G, selected_entities)
 
         # Add to a dockable widget
@@ -321,6 +321,8 @@ class AssemblyViewerWindow(QMainWindow):
                 intersection = list(set(related_elements).intersection(entities))
                 print(f"Only keeping these references:\n{intersection}")
                 relation.RelatedElements = intersection
+                self.output_model.add(relation)
+                relation.RelatedElements = related_elements # Revert the related elements in the original model to prevent corruption
             self.G.add_node(relation.id(), entity=relation)
             self.G.add_edge(entity.id(), relation.id())
 
@@ -338,6 +340,8 @@ class AssemblyViewerWindow(QMainWindow):
                 intersection = list(set(related_objects).intersection(entities))
                 print(f"Only keeping these references:\n{intersection}")
                 relation.RelatedObjects = intersection
+                self.output_model.add(relation)
+                relation.RelatedObjects = related_objects # Revert the related objects in the original model to prevent corruption
             self.G.add_node(relation.id(), entity=relation)
             self.G.add_edge(entity.id(), relation.id())
 
@@ -349,7 +353,6 @@ class AssemblyViewerWindow(QMainWindow):
         # There are certain entities that are necessary for being read by other programs
         # IfcProject, IfcBuilding
 
-        output_model = ifcopenshell.file(schema=self.ifc_model.schema) # Ideally, this program is schema agnostic
 
         # Get IfcProject
         project = self.ifc_model.by_type("IfcProject")[0] # by_type() returns a list but there is only one IfcProject so we take the first element
@@ -360,7 +363,7 @@ class AssemblyViewerWindow(QMainWindow):
 
         # Add the IfcProject entity and its directly related entities
         for entity in entities_to_add:
-            output_model.add(entity)
+            self.output_model.add(entity)
         
         # Get IfcBuilding
         building = self.ifc_model.by_type("IfcBuilding")[0]        
@@ -370,22 +373,22 @@ class AssemblyViewerWindow(QMainWindow):
 
         # add the IfcBuilding entity and its directly related entities
         for entity in entities_to_add:
-            output_model.add(entity)
+            self.output_model.add(entity)
 
         # Add the assemblies we want to export
         for node_id, node_attributes in self.G.nodes(data=True):
             entity = node_attributes.get("entity")
             print(f"Outputting {entity}")
-            output_model.add(entity)
+            self.output_model.add(entity)
         
         # Remove IfcGrid and IfcGridAxis
         # TODO: Make this a toggle
-        for entity in list(output_model):
+        for entity in list(self.output_model):
             if entity.is_a() in ("IfcGridAxis", "IfcGrid"):
-                output_model.remove(entity)
+                self.output_model.remove(entity)
         
         # TODO: Remove objects from assemblies we didn't select from IfcRelAssociatesMaterials
-        output_model.write(output_path)
+        self.output_model.write(output_path)
             
     def get_children(self, entity):
         children = []
