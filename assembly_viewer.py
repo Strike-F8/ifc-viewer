@@ -183,8 +183,12 @@ class AssemblyViewerWindow(QMainWindow):
             # self.add_forward_references_to_graph(entity)
 
             # Get the IfcRelContainedInSpatialStructure for each assembly
-            # TODO: Remove assemblies we didn't select from the relation
+            # Remove assemblies we didn't select from the relation
+            # TODO: Check this removal behavior
             self.find_ifc_rel_contained_in_spatial_structure(assembly, selected_entities)
+
+            # Get the IfcRelDefinesByProperties entities for each assembly
+            self.find_ifc_rel_defines_by_properties(assembly, selected_entities)
 
             # Find the objects that make up the current assembly 
             assembly_objects.extend(self.find_assembly_objects(assembly))
@@ -201,6 +205,9 @@ class AssemblyViewerWindow(QMainWindow):
             for child in children:
                 self.G.add_node(child.id(), entity=child)
                 self.G.add_edge(object.id(), child.id())
+            
+            # Get the IfcRelDefinesByProperties of each object
+            self.find_ifc_rel_defines_by_properties(object, assembly_objects)
 
         # 3. TODO: Save related entities with their original step ids
         # 4. Output to a new IFC file
@@ -300,19 +307,39 @@ class AssemblyViewerWindow(QMainWindow):
             self.G.add_node(voids_element.id(), entity=voids_element)
             self.G.add_edge(rel_voids_element.id(), voids_element.id())
     
-    def find_ifc_rel_contained_in_spatial_structure(self, object, assemblies):
-        relations = object.ContainedInStructure
-        print(f"{object} is contained in:")
+    # Find the referencing IfcRelContainedInSpatialStructure entities of the given entity
+    # These referencing entities reference many other objects that we may not want
+    # so the user can pass in a list of related objects to be included. All others are removed
+    def find_ifc_rel_contained_in_spatial_structure(self, entity, entities=None):
+        relations = entity.ContainedInStructure
+        print(f"{entity} is contained in:")
         for relation in relations:
             print(relation)
-            if relation not in self.G:
-                # Remove the references to assemblies we did not select
+            # Remove the references to entities we did not select
+            if entities:
                 related_elements = relation.RelatedElements
-                intersection = list(set(related_elements).intersection(assemblies))
+                intersection = list(set(related_elements).intersection(entities))
                 print(f"Only keeping these references:\n{intersection}")
                 relation.RelatedElements = intersection
-                self.G.add_node(relation.id(), entity=relation)
-                self.G.add_edge(object.id(), relation.id())
+            self.G.add_node(relation.id(), entity=relation)
+            self.G.add_edge(entity.id(), relation.id())
+
+    # Find the referencing IfcRelDefinesByProperties entities of the given entity
+    # These referencing entities reference many other objects that we may not want
+    # so the user can pass in a list of related objects to be included. All others are removed
+    def find_ifc_rel_defines_by_properties(self, entity, entities=None):
+        relations = entity.IsDefinedBy
+        print(f"{entity} is defined by:")
+        for relation in relations:
+            print(relation)
+            # Remove the references to entities we did not select
+            if entities:
+                related_objects = relation.RelatedObjects
+                intersection = list(set(related_objects).intersection(entities))
+                print(f"Only keeping these references:\n{intersection}")
+                relation.RelatedObjects = intersection
+            self.G.add_node(relation.id(), entity=relation)
+            self.G.add_edge(entity.id(), relation.id())
 
     def export_assemblies_to_file(self):
         output_path = self.file_path_combo.currentText()

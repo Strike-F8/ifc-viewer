@@ -114,7 +114,6 @@ class IFCGraphViewer(QGraphicsView):
         # Draw nodes
         for node_id, (x, y) in pos.items():
             entity = self.G.nodes[node_id]['entity']
-            print(entity)
             label = f"{entity.is_a()} #{entity.id()}"
             node_item = GraphNode(x, y, 30, entity, label)
             self.scene.addItem(node_item)
