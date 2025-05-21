@@ -193,7 +193,6 @@ class AssemblyViewerWindow(QMainWindow):
             # Find the objects that make up the current assembly 
             assembly_objects.extend(self.find_assembly_objects(assembly))
 
-        # TODO: Make sure we aren't adding unnecessary entities in this step
         for object in assembly_objects:
             # Get the materials for each object
             self.find_material(object, assembly_objects)
@@ -225,30 +224,6 @@ class AssemblyViewerWindow(QMainWindow):
             dock.setWidget(self.viewer)
             self.addDockWidget(Qt.RightDockWidgetArea, dock)
 
-
-    def add_references_to_graph(self, current_entity, references):
-        # Iterate over the references
-        for attribute_name, entity_list in references.items():
-            for entity in entity_list:
-                self.G.add_node(entity, color='green')
-                self.G.add_edge(current_entity, entity)
-
-    def add_forward_references_to_graph(self, entity):
-        self.G.add_node(entity.id(), entity=entity)
-
-        for attr_name in entity.get_info().keys():
-            if attr_name in ("id", "type", "Name", "Description", "GlobalId"): # skip attributes that we know are not references
-                continue
-            value = getattr(entity, attr_name, None)
-            if isinstance(value, ifcopenshell.entity_instance):
-                self.G.add_edge(entity.id(), value.id())
-                self.add_forward_references_to_graph(value)
-            elif str(value) == "RelatedObjects": # TODO: Traverse into every type of iterable. Not just RelatedObjects
-                for item in value:
-                    if isinstance(item, ifcopenshell.entity_instance):
-                        self.G.add_edge(entity.id(), item.id())
-                        self.add_forward_references_to_graph(item)
-    
     def find_ifc_rel_aggregates(self, assembly):
         ifc_rel_aggregates = None
         
@@ -360,7 +335,6 @@ class AssemblyViewerWindow(QMainWindow):
         # There are certain entities that are necessary for being read by other programs
         # IfcProject, IfcBuilding
 
-
         # Get IfcProject
         project = self.ifc_model.by_type("IfcProject")[0] # by_type() returns a list but there is only one IfcProject so we take the first element
         children = self.get_children(project)
@@ -394,7 +368,6 @@ class AssemblyViewerWindow(QMainWindow):
             if entity.is_a() in ("IfcGridAxis", "IfcGrid"):
                 self.output_model.remove(entity)
         
-        # TODO: Remove objects from assemblies we didn't select from IfcRelAssociatesMaterials
         self.output_model.write(output_path)
             
     def get_children(self, entity):
