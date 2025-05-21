@@ -239,7 +239,7 @@ class AssemblyViewerWindow(QMainWindow):
         for entity in assembly.IsDecomposedBy:
             if entity.is_a("IfcRelAggregates"):
                 ifc_rel_aggregates = entity
-                print(f"Found {ifc_rel_aggregates}\nfor {assembly}")
+                #print(f"Found {ifc_rel_aggregates}\nfor {assembly}")
                 break
 
         if ifc_rel_aggregates:
@@ -276,14 +276,14 @@ class AssemblyViewerWindow(QMainWindow):
     # so the user can pass in a list of related objects to be included. All others are removed
     def find_ifc_rel_contained_in_spatial_structure(self, entity, entities=None):
         relations = entity.ContainedInStructure
-        print(f"{entity} is contained in:")
+        #print(f"{entity} is contained in:")
         for relation in relations:
-            print(relation)
+            #print(relation)
             # Remove the references to entities we did not select
             if entities:
                 related_elements = relation.RelatedElements
                 intersection = list(set(related_elements).intersection(entities))
-                print(f"Only keeping these references:\n{intersection}")
+                #print(f"Only keeping these references:\n{intersection}")
                 relation.RelatedElements = intersection
                 self.output_model.add(relation)
                 relation.RelatedElements = related_elements # Revert the related elements in the original model to prevent corruption
@@ -295,14 +295,14 @@ class AssemblyViewerWindow(QMainWindow):
     # so the user can pass in a list of related objects to be included. All others are removed
     def find_ifc_rel_defines_by_properties(self, entity, entities=None):
         relations = entity.IsDefinedBy
-        print(f"{entity} is defined by:")
+        #print(f"{entity} is defined by:")
         for relation in relations:
-            print(relation)
+            #print(relation)
             # Remove the references to entities we are not exporting
             if entities:
                 related_objects = relation.RelatedObjects
                 intersection = list(set(related_objects).intersection(entities))
-                print(f"Only keeping these references:\n{intersection}")
+                #print(f"Only keeping these references:\n{intersection}")
                 relation.RelatedObjects = intersection
                 self.output_model.add(relation)
                 relation.RelatedObjects = related_objects # Revert the related objects in the original model to prevent corruption
@@ -315,13 +315,13 @@ class AssemblyViewerWindow(QMainWindow):
         for entity in object.HasAssociations:
             if entity.is_a("IfcRelAssociatesMaterial"):
                 ifc_rel_associates_material = entity
-                print(f"Found {ifc_rel_associates_material}\nfor {object}")
+                #print(f"Found {ifc_rel_associates_material}\nfor {object}")
                 # Remove the references to objects we are not exporting
                 if objects:
                     related_objects = entity.RelatedObjects
                     intersection = list(set(related_objects).intersection(objects))
                     entity.RelatedObjects = intersection
-                    print(f"Only keeping these references:\n{intersection}")
+                    #print(f"Only keeping these references:\n{intersection}")
                     self.output_model.add(entity)
                     entity.RelatedObjects = related_objects # Revert the change to prevent corruption in the original model
                 self.G.add_node(entity.id(), entity=entity)
@@ -368,7 +368,7 @@ class AssemblyViewerWindow(QMainWindow):
         # Add the assemblies we want to export
         for node_id, node_attributes in self.G.nodes(data=True):
             entity = node_attributes.get("entity")
-            print(f"Outputting {entity}")
+            #print(f"Outputting {entity}")
             self.output_model.add(entity)
         
         # Remove IfcGrid and IfcGridAxis
