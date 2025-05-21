@@ -78,11 +78,11 @@ class AssemblyViewerWindow(QMainWindow):
         self.status_label.setWordWrap(True)
 
         self.add_assembly_export_button()
-        self.add_graph_toggle()
+        self.add_toggles()
         self.add_file_layout()
 
         layout.addLayout(self.file_layout)
-        layout.addWidget(self.graph_toggle_checkbox)
+        layout.addLayout(self.toggle_layout)
         layout.addWidget(self.status_label)
         layout.addWidget(self.assembly_export_button)
 
@@ -131,10 +131,19 @@ class AssemblyViewerWindow(QMainWindow):
 
         self.file_layout = file_layout
     
-    def add_graph_toggle(self):
-        self.graph_toggle_checkbox = QCheckBox("Show Graph")        
+    def add_toggles(self):
+        self.graph_toggle_checkbox = QCheckBox("Draw Graph")        
         self.graph_toggle_checkbox.setChecked(False)
-    
+
+        self.grid_toggle_checkbox = QCheckBox("Export Grids")
+        self.grid_toggle_checkbox.setChecked(False)
+
+        self.toggle_layout = QHBoxLayout()
+
+        self.grid_toggle_checkbox.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.toggle_layout.addWidget(self.graph_toggle_checkbox)
+        self.toggle_layout.addWidget(self.grid_toggle_checkbox) 
+
     def browse_output_path(self):
         path, _ = QFileDialog.getSaveFileName(
             self,
@@ -363,9 +372,10 @@ class AssemblyViewerWindow(QMainWindow):
             self.output_model.add(entity)
         
         # Remove IfcGrid and IfcGridAxis
-        # TODO: Make this a toggle
-        for entity in list(self.output_model):
-            if entity.is_a() in ("IfcGridAxis", "IfcGrid"):
+        if not self.grid_toggle_checkbox.isChecked():
+            for entity in self.output_model.by_type("IfcGridAxis"):
+                self.output_model.remove(entity)
+            for entity in self.output_model.by_type("IfcGrid"):
                 self.output_model.remove(entity)
         
         self.output_model.write(output_path)
