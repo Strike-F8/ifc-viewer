@@ -17,7 +17,6 @@ from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
-# TODO: Add context menu options for copying STEP ID and GUID
 # TODO: Improve filtering as it is very inconsistent
 
 class SqlEntityTableModel(QAbstractTableModel):
@@ -48,11 +47,9 @@ class SqlEntityTableModel(QAbstractTableModel):
     # Uses the filter text provided by the user to filter the display
     def _load_row_ids(self):
         if self._filter:
-            # Escape single quotes inside filter string for SQL
-            safe_filter = self._filter.replace("'", "''") + "*"  # Add wildcard for partial match
             query = f"""
                 SELECT rowid FROM fts_entities
-                WHERE fts_entities MATCH "{safe_filter}"
+                WHERE fts_entities MATCH '"{self._filter}"'
                 ORDER BY {self._sort_column} {self._sort_order}
             """
             rows = self.db.execute(query)
@@ -123,7 +120,6 @@ class SqlEntityTableModel(QAbstractTableModel):
             f"SELECT {self.columns_sql} FROM base_entities WHERE id = ?",
             (row_id,)
         ).fetchone()
-
 
     # Initial population of the database with entities from the ifc model
     def populate_db(self):
