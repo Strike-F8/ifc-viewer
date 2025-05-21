@@ -159,7 +159,7 @@ class AssemblyViewerWindow(QMainWindow):
         selected_indexes = self.assembly_table.selectionModel().selectedRows()
         selected_entities = []
 
-        # Get the actual entities that were selected
+        # Use the indexes to get the actual entities that were selected
         for index in selected_indexes:
             entity = self.model.data(index, Qt.UserRole)
             if entity:
@@ -169,10 +169,7 @@ class AssemblyViewerWindow(QMainWindow):
         for entity in selected_entities:
             print(entity)
             
-        #       TODO: Get all related entities including openings, voids, materials etc.
-        #       without getting unselected entities as well
-        #       Right now, this function only gets the overall geometry of the assembly parts
-
+        # Create the output model that will be used to export the assemblies
         self.output_model = ifcopenshell.file(schema=self.ifc_model.schema) # Ideally, this program is schema agnostic
 
         self.G.clear() # Reset the graph for the new export
@@ -182,8 +179,6 @@ class AssemblyViewerWindow(QMainWindow):
             self.G.add_node(assembly.id(), entity=assembly, color='red') # Color as red because it is one of the assemblies selected by the user
 
             # Get the IfcRelContainedInSpatialStructure for each assembly
-            # Remove assemblies we didn't select from the relation
-            # TODO: Check this removal behavior
             self.find_ifc_rel_contained_in_spatial_structure(assembly, selected_entities)
 
             # Get the IfcRelDefinesByProperties entities for each assembly
@@ -195,7 +190,7 @@ class AssemblyViewerWindow(QMainWindow):
         # TODO: Make sure we aren't adding unnecessary entities in this step
         for object in assembly_objects:
             # Get the materials for each object
-            #self.find_material(object)
+            self.find_material(object, assembly_objects)
             # Get the voids\opening elements for each object
             self.find_voids_elements(object)
 
@@ -208,7 +203,7 @@ class AssemblyViewerWindow(QMainWindow):
             # Get the IfcRelDefinesByProperties of each object
             self.find_ifc_rel_defines_by_properties(object, assembly_objects)
 
-        # 3. TODO: Save related entities with their original step ids
+        # 3. TODO: Save related entities with their original step ids (Does not seem to be possible with ifcopenshell)
         # 4. Output to a new IFC file
         self.export_assemblies_to_file()
 
@@ -277,26 +272,6 @@ class AssemblyViewerWindow(QMainWindow):
         
         return related_objects
 
-    def find_material(self, object):
-        # get the IfcRelAssociatesMaterial entity that references this object
-        ifc_rel_associates_material = None
-        for entity in object.HasAssociations:
-            if entity.is_a("IfcRelAssociatesMaterial"):
-                ifc_rel_associates_material = entity
-                print(f"Found {ifc_rel_associates_material}\nfor {object}")
-                self.G.add_node(entity.id(), entity=entity)
-                self.G.add_edge(object.id(), entity.id())
-                break
-
-       # TODO: Truncate the reference list in ifc_rel_associates_material to only include the objects we are exporting 
-        if ifc_rel_associates_material:
-            material = ifc_rel_associates_material.RelatingMaterial
-            self.G.add_node(material.id(), entity=material)
-            self.G.add_edge(ifc_rel_associates_material.id(), material.id())
-            return material
-
-        return "NO MATERIAL"
-
     def find_voids_elements(self, object):
         rel_voids_elements = object.HasOpenings
         for rel_voids_element in rel_voids_elements:
@@ -334,7 +309,7 @@ class AssemblyViewerWindow(QMainWindow):
         print(f"{entity} is defined by:")
         for relation in relations:
             print(relation)
-            # Remove the references to entities we did not select
+            # Remove the references to entities we are not exporting
             if entities:
                 related_objects = relation.RelatedObjects
                 intersection = list(set(related_objects).intersection(entities))
@@ -344,6 +319,33 @@ class AssemblyViewerWindow(QMainWindow):
                 relation.RelatedObjects = related_objects # Revert the related objects in the original model to prevent corruption
             self.G.add_node(relation.id(), entity=relation)
             self.G.add_edge(entity.id(), relation.id())
+    
+    def find_material(self, object, objects=None):
+        # get the IfcRelAssociatesMaterial entity that references this object
+        ifc_rel_associates_material = None
+        for entity in object.HasAssociations:
+            if entity.is_a("IfcRelAssociatesMaterial"):
+                ifc_rel_associates_material = entity
+                print(f"Found {ifc_rel_associates_material}\nfor {object}")
+                # Remove the references to objects we are not exporting
+                if objects:
+                    related_objects = entity.RelatedObjects
+                    intersection = list(set(related_objects).intersection(objects))
+                    entity.RelatedObjects = intersection
+                    print(f"Only keeping these references:\n{intersection}")
+                    self.output_model.add(entity)
+                    entity.RelatedObjects = related_objects # Revert the change to prevent corruption in the original model
+                self.G.add_node(entity.id(), entity=entity)
+                self.G.add_edge(object.id(), entity.id())
+                break
+
+        if ifc_rel_associates_material:
+            material = ifc_rel_associates_material.RelatingMaterial
+            self.G.add_node(material.id(), entity=material)
+            self.G.add_edge(ifc_rel_associates_material.id(), material.id())
+            return material
+
+        return "NO MATERIAL"
 
     def export_assemblies_to_file(self):
         output_path = self.file_path_combo.currentText()
