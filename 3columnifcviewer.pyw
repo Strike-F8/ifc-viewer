@@ -18,8 +18,7 @@ from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 # TODO: Add context menu options for copying STEP ID and GUID
-# TODO: Improve search as it is very inconsistent
-# TODO: Set middle view columns as resizeable
+# TODO: Improve filtering as it is very inconsistent
 
 class SqlEntityTableModel(QAbstractTableModel):
     def __init__(self, ifc_model, file_path):
@@ -341,17 +340,40 @@ class IfcViewer(QMainWindow):
             return
         
         menu = QMenu()
-        copy_action = QAction(f"Copy STEP Line #{entity.id()}", menu)
-        copy_action.triggered.connect(lambda: self.copy_step_line(entity))
-        menu.addAction(copy_action)
+        # Copy the step line of the current item
+        copy_step_line_action = QAction(f"Copy STEP Line #{entity.id()}", menu)
+        copy_step_line_action.triggered.connect(lambda: self.copy_step_line(entity))
+        menu.addAction(copy_step_line_action)
+
+        # Copy the step id of the current item
+        copy_step_id_action = QAction(f"Copy STEP ID #{entity.id()}", menu) 
+        copy_step_id_action.triggered.connect(lambda: self.copy_step_id(entity))
+        menu.addAction(copy_step_id_action)
+
+        # Copy the GUID of the current item
+        try:
+            copy_guid_action = QAction(f"Copy GUID {entity.GlobalId}")
+            copy_guid_action.triggered.connect(lambda: self.copy_guid(entity))
+            menu.addAction(copy_guid_action)
+        except:
+            pass # Some entities do not have GUID so skip
+
+        # Copy the current item
         copy_row_action = QAction("Copy This Row", menu)
         copy_row_action.triggered.connect(lambda: self.copy_row_text(view, index.row()))
         menu.addAction(copy_row_action)
+
+        # Show the context menu
         menu.exec(view.viewport().mapToGlobal(position))
         
     def copy_step_line(self, entity):
-        clipboard = QApplication.clipboard()
-        clipboard.setText(str(entity))
+        QApplication.clipboard().setText(str(entity))
+
+    def copy_step_id(self, entity):
+        QApplication.clipboard().setText('#' + str(entity.id()))
+
+    def copy_guid(self, entity):
+        QApplication.clipboard().setText(str(entity.GlobalId))
 
     def copy_row_text(self, view, row):
         model = view.model()
