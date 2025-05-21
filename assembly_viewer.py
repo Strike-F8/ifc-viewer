@@ -3,7 +3,7 @@ from collections.abc import Iterable
 import ifcopenshell
 
 from PySide6.QtWidgets import (
-    QTableView, QLabel, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout,
+    QTableView, QLabel, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout, QCheckBox,
     QAbstractItemView, QPushButton, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy
 )
 from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QSettings
@@ -78,9 +78,11 @@ class AssemblyViewerWindow(QMainWindow):
         self.status_label.setWordWrap(True)
 
         self.add_assembly_export_button()
+        self.add_graph_toggle()
         self.add_file_layout()
 
         layout.addLayout(self.file_layout)
+        layout.addWidget(self.graph_toggle_checkbox)
         layout.addWidget(self.status_label)
         layout.addWidget(self.assembly_export_button)
 
@@ -128,6 +130,10 @@ class AssemblyViewerWindow(QMainWindow):
         file_layout.addWidget(self.browse_button)
 
         self.file_layout = file_layout
+    
+    def add_graph_toggle(self):
+        self.graph_toggle_checkbox = QCheckBox("Show Graph")        
+        self.graph_toggle_checkbox.setChecked(False)
     
     def browse_output_path(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -207,18 +213,17 @@ class AssemblyViewerWindow(QMainWindow):
         # 4. Output to a new IFC file
         self.export_assemblies_to_file()
 
-        # Visualize graph using Pyside graph
-        # TODO: Make this a toggle
-        self.viewer = IFCGraphViewer(self.G, selected_entities)
-
-        # Add to a dockable widget
-        if self.title:
-            dock = QDockWidget(f"Graph of {self.title}", self)
-        else:
-            dock = QDockWidget("Graph view", self)
-            
-        dock.setWidget(self.viewer)
-        self.addDockWidget(Qt.RightDockWidgetArea, dock)
+        # Optionally, visualize graph using graphics view
+        if self.graph_toggle_checkbox.isChecked():
+            self.viewer = IFCGraphViewer(self.G, selected_entities)
+            # Add to a dockable widget
+            if self.title:
+                dock = QDockWidget(f"Graph of {self.title}", self)
+            else:
+                dock = QDockWidget("Graph view", self)
+                
+            dock.setWidget(self.viewer)
+            self.addDockWidget(Qt.RightDockWidgetArea, dock)
 
 
     def add_references_to_graph(self, current_entity, references):
