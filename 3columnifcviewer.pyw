@@ -14,13 +14,15 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QThread, Signal, Slot, QTimer
-import time
 
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json") # Save the recent files list
 DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be shared between threads
 COLUMNS = ["STEP ID", "Ifc Type", "GUID", "Name", "STEP Line"]
 COLUMNS_SQL = ", ".join(f'"{col}"' for col in COLUMNS) # Define the columns here and use this variable throughout the program
 
+# This simple worker takes in a line from the main thread and executes it in the background
+# It is used to execute ifcopenshell.open(file)
+# Large files can take some time to open so open them in the background and show a spinner in the meantime
 class SimpleIFCWorker(QThread):
     progress = Signal(int)
     finished = Signal(object)
@@ -32,6 +34,12 @@ class SimpleIFCWorker(QThread):
         result = self.task_fn()
         self.finished.emit(result)
 
+# The DBWorker class populates the database used to display entities in the middle view.
+# SQLite is not thread safe but using the shared in memory database as defined in DB_URI,
+# DBWorker creates a connection solely used for inserting all the entities.
+# Once the insert is done, the main thread is notified so it can start reading.
+# TODO: Show the database populating in realtime (WAL mode?)
+
 class DBWorker(QThread):
     progress = Signal(int)
     finished = Signal()
@@ -41,7 +49,7 @@ class DBWorker(QThread):
         self.ifc_model = ifc_model
 
     def run(self):
-        with sqlite3.connect(DB_URI, uri=True) as conn: # Create a connection just for inserting the elements in this background thread
+        with sqlite3.connect(DB_URI, uri=True) as conn: # Create a connection solely for inserting the elements in this background thread
             try:
                 conn.execute("DROP TABLE IF EXISTS base_entities")
                 conn.execute("DROP TABLE IF EXISTS fts_entities")
@@ -97,6 +105,7 @@ class DBWorker(QThread):
                 print(f"Failed to populate DB\n{e}")
                 self.finished.emit()
 
+    # If the step line contains a long list of references, truncate it to lighten the load on the middle view
     def generate_step_line(self, step_line, max_refs=2):
         if len(step_line) < 200:
             return step_line
@@ -112,18 +121,17 @@ class DBWorker(QThread):
 
         return re.sub(r'\((#\d+(?:,\s*#\d+)*)\)', replacer, step_line, count=1)
 
+# The SQLEntityTableModel class serves as the backend for the middle view.
+# Previously, it inserted the entities into the database. Now, it is only created
+# after the background thread is done inserting into the database.
 class SqlEntityTableModel(QAbstractTableModel):
     def __init__(self, ifc_model, file_path):
         super().__init__()
-        #db_path = f"db/{os.path.basename(file_path)}.sqlite3"
-        #db_path = ":memory:" # Keep the database in memory for performance
-                             # Can be exported to a file if needed
-        self.file_path = file_path # The filepath of the ifc file
+        self.file_path = file_path # The file path of the ifc file
         self.ifc_model = ifc_model # The ifc_model loaded into memory
-        #os.makedirs("db", exist_ok=True) # Make the db folder if it doesn't exist
 
         self.db = sqlite3.connect(DB_URI, uri=True)
-        self.db.row_factory = sqlite3.Row
+        self.db.row_factory = sqlite3.Row # Return rows as dictionaries
 
         # Default filter
         self._filter = ""
@@ -134,7 +142,8 @@ class SqlEntityTableModel(QAbstractTableModel):
 
         self._load_row_ids()
 
-    # Use the filter text provided by the user to filter the display
+    # Display the entities contained in the database
+    # Optionally filter and sort by conditions provided by the user
     def _load_row_ids(self):
         if self._filter:
             query = f"""
@@ -153,7 +162,7 @@ class SqlEntityTableModel(QAbstractTableModel):
         self._row_ids = [row[0] for row in rows]
         self._row_count = len(self._row_ids)
 
-    # Get the filter text from the main window and filter the database
+    # Get the filter text inputted by the user and display the data again
     def set_filter(self, filter_text):
         self._filter = filter_text.strip()
         self._load_row_ids()
