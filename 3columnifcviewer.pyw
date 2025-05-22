@@ -2,7 +2,6 @@ import sys
 import os
 import json
 import ifcopenshell
-import concurrent.futures
 import sqlite3
 import functools
 import re
@@ -25,8 +24,8 @@ class SqlEntityTableModel(QAbstractTableModel):
         db_path = ":memory:" # Keep the database in memory for performance
                              # Can be exported to a file if needed
         self.file_path = file_path # The filepath of the ifc file
-        self.ifc_model = ifc_model # The "file" object from ifcopenshell
-        os.makedirs("db", exist_ok=True) # Make the db folder if it doesn't exist
+        self.ifc_model = ifc_model # The ifc_model loaded into memory
+        #os.makedirs("db", exist_ok=True) # Make the db folder if it doesn't exist
 
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row
@@ -35,7 +34,8 @@ class SqlEntityTableModel(QAbstractTableModel):
 
         self.populate_db() # Add entites from the ifc model to the database
 
-        self._filter = "" # At first, there is no filter
+        # Default filter
+        self._filter = ""
         self._filter_params = ()
         self._row_ids = []
         self._sort_column = "STEP ID" # Sort by step id
@@ -43,7 +43,7 @@ class SqlEntityTableModel(QAbstractTableModel):
 
         self._load_row_ids()
 
-    # Uses the filter text provided by the user to filter the display
+    # Use the filter text provided by the user to filter the display
     def _load_row_ids(self):
         if self._filter:
             query = f"""
@@ -69,8 +69,7 @@ class SqlEntityTableModel(QAbstractTableModel):
         self._get_row.cache_clear()
         self.layoutChanged.emit()
 
-    # Sorts the database view. However, it only works for the initial sort
-    # TODO: Allow the user to sort
+    # Sorts the database view
     def sort(self, column, order):
         self._sort_column = self._columns[column]
         if order == Qt.AscendingOrder:
@@ -217,7 +216,7 @@ class IfcViewer(QMainWindow):
         self.middle_view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
         self.middle_view.setWordWrap(False)
-        for i in range(4): # TODO: Check column width
+        for i in range(4):
             self.middle_view.setColumnWidth(i, 100)
             
         self.middle_view.horizontalHeader().setStretchLastSection(True)
@@ -272,9 +271,6 @@ class IfcViewer(QMainWindow):
         self.middle_view.setAutoScroll(False)
         self.middle_view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.middle_view.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
-
-        # threading for faster search
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     def add_toolbar(self):
         toolbar = QToolBar("Main Toolbar")
