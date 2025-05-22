@@ -20,6 +20,8 @@ DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be share
 COLUMNS = ["STEP ID", "Ifc Type", "GUID", "Name", "STEP Line"]
 COLUMNS_SQL = ", ".join(f'"{col}"' for col in COLUMNS) # Define the columns here and use this variable throughout the program
 
+# TODO: Clearer labels for the main 3 views for ease of use
+# TODO: Multiple language support
 # This simple worker takes in a line from the main thread and executes it in the background
 # It is used to execute ifcopenshell.open(file)
 # Large files can take some time to open so open them in the background and show a spinner in the meantime
