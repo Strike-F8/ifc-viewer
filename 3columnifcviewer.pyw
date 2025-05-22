@@ -135,7 +135,6 @@ class SqlEntityTableModel(QAbstractTableModel):
 
         # Default filter
         self._filter = ""
-        self._filter_params = ()
         self._row_ids = []
         self._sort_column = "STEP ID" # Sort by step id
         self._sort_order = "ASC"
