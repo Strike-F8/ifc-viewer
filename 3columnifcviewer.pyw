@@ -311,7 +311,6 @@ class IfcViewer(QMainWindow):
         filter_term = self.filter_bar.text()
         self.middle_model.set_filter(filter_term)
         
-
     # When clicking on an entity in either of the three views, show a context menu that allows the user to copy
     # the original step line of the entity
     def show_context_menu(self, position, view):
@@ -398,11 +397,10 @@ class IfcViewer(QMainWindow):
             self.update_recent_files_menu()
             self.save_recent_files()
         
+            status_text = f"Loaded \"{os.path.basename(file_path)}\"\nPress the \"Load Entities\" button to view the contents"
+            self.status_label.setText(status_text)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
-        status_text = f"Loaded \"{os.path.basename(file_path)}\"\nPress the \"Load Entities\" button to view the contents"
-
-        self.status_label.setText(status_text)
         
     def load_db(self):
         self.middle_model = SqlEntityTableModel(ifc_model=self.ifc_model, file_path=self.file_path)
@@ -494,7 +492,7 @@ class IfcViewer(QMainWindow):
             return
 
         if item.hasChildren() and item.child(0).text() == "Loading...":
-            item.removeRows(0, item.rowCount())  # Remove dummy
+            item.removeRows(0, item.rowCount())  # Remove placeholder
 
             entity = item.data()
             if not entity:
@@ -563,7 +561,7 @@ class IfcViewer(QMainWindow):
         self.left_model.removeRows(0, self.left_model.rowCount())
         
         root_item = self.create_lazy_item(entity)
-        root_item.setFlags(root_item.flags() & ~Qt.ItemIsEditable)
+        root_item.setFlags(root_item.flags() & ~Qt.ItemIsEditable) # items in the view are editable by default so prevent editing
         self.left_model.appendRow(root_item)
 
     def create_lazy_item(self, ent):
@@ -571,7 +569,7 @@ class IfcViewer(QMainWindow):
         item.setData(ent)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
-        # Add dummy child so it's expandable
+        # Add placeholder child so it's expandable
         item.appendRow(QStandardItem("Loading..."))
         return item
     
@@ -585,7 +583,7 @@ class IfcViewer(QMainWindow):
 
         # Check if already loaded
         if item.hasChildren() and item.child(0).text() == "Loading...":
-            item.removeRows(0, item.rowCount())  # Remove dummy
+            item.removeRows(0, item.rowCount())  # Remove placeholder
 
             entity = item.data()
             if not entity:
