@@ -5,6 +5,7 @@ import ifcopenshell
 
 from assembly_viewer import AssemblyViewerWindow
 from db import DBWorker, SqlEntityTableModel
+from options import OptionsWindow
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget, QLabel,
@@ -129,6 +130,7 @@ class IfcViewer(QMainWindow):
         toolbar.addAction(QAction("Load Entities", self, triggered=self.start_load_db_task)) # Large files take a long time 
                                                                                         # so only load entities when the user clicks the button
         toolbar.addAction(QAction("Assembly Exporter", self, triggered=self.show_assemblies_window))
+        toolbar.addAction(QAction("Options", self, triggered=self.show_options_window))
 
     def add_status_label(self):
         self.status_label = QLabel("＜ーChoose an IFC file to open")
@@ -493,6 +495,15 @@ class IfcViewer(QMainWindow):
         if not self.spinner_timer.isActive(): # If the application isn't currently loading or displaying an IFC file
             self.assembly_viewer = AssemblyViewerWindow(title=self.file_path, ifc_model=self.ifc_model)
             self.assembly_viewer.show()
+
+# ==============================
+# Options window
+# ==============================
+
+    def show_options_window(self):
+        if not self.spinner_timer.isActive():
+            self.options_window = OptionsWindow(title="IFCViewer Options")
+            self.options_window.show()
 
 if __name__ == "__main__":
     file_path = sys.argv[1] if len(sys.argv) > 1 else None
