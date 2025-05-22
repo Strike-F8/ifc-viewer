@@ -17,8 +17,11 @@ from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QThread, Signal
 import time
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
+DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be shared between threads
+COLUMNS = ["STEP ID", "Ifc Type", "GUID", "Name", "STEP Line"]
+COLUMNS_SQL = ", ".join(f'"{col}"' for col in COLUMNS) # Define the columns here and use this variable throughout the program
 
-class LoadIFCWorker(QThread):
+class SimpleIFCWorker(QThread):
     progress = Signal(int)
     finished = Signal(object)
     def __init__(self, task_fn):
@@ -28,23 +31,99 @@ class LoadIFCWorker(QThread):
     def run(self):
         result = self.task_fn()
         self.finished.emit(result)
-        
+
+class DBWorker(QThread):
+    progress = Signal(int)
+    finished = Signal()
+
+    def __init__(self, ifc_model):
+        super().__init__()
+        self.ifc_model = ifc_model
+
+    def run(self):
+        with sqlite3.connect(DB_URI, uri=True) as conn: # Create a connection just for inserting the elements in this background thread
+            try:
+                conn.execute("DROP TABLE IF EXISTS base_entities")
+                conn.execute("DROP TABLE IF EXISTS fts_entities")
+            except Exception as e:
+                print(e)
+
+            # Create the base table and virtual table
+            try:
+                conn.execute(f"CREATE TABLE base_entities (id INTEGER PRIMARY KEY,{COLUMNS_SQL})")
+            except Exception as e:
+                print(f"failed to create base_entities\n{e}")
+
+            try:
+                conn.execute(f"""CREATE VIRTUAL TABLE fts_entities USING fts5(
+                    {COLUMNS_SQL},
+                    content='base_entities',
+                    content_rowid='id',
+                    tokenize='trigram remove_diacritics 1',
+                    )
+                """)
+            except Exception as e:
+                print(f"failed to create fts_entities\n{e}")
+
+            try:
+                batch = []
+                for entity in list(self.ifc_model):
+                    info = entity.get_info()
+                    batch.append([
+                        entity.id(),                    # STEP ID
+                        entity.is_a(),                  # Ifc Type
+                        info.get("GlobalId", ""),       # GUID
+                        info.get("Name", ""),           # Name
+                        self.generate_step_line(str(entity)) # If the step line contains a long list of references, truncate the list and keep everything else
+                    ])
+
+                # DB optimizations for faster inserts
+                conn.execute("PRAGMA journal_mode = OFF")
+                conn.execute("PRAGMA synchronous = OFF")
+                conn.execute("PRAGMA locking_mode = EXCLUSIVE")
+                conn.execute("PRAGMA temp_store = MEMORY")
+                conn.execute("PRAGMA cache_size = -100000")  # Approx. 100MB
+
+                # Execute all inserts in one batch
+                conn.execute("BEGIN TRANSACTION")
+                conn.executemany(f"INSERT INTO base_entities ({COLUMNS_SQL}) VALUES (?, ?, ?, ?, ?)", batch)
+                conn.execute("COMMIT")
+
+                conn.execute("INSERT INTO fts_entities(fts_entities) VALUES ('rebuild')")
+                conn.commit()
+                self.finished.emit()
+
+            except Exception as e:
+                print(f"Failed to populate DB\n{e}")
+                self.finished.emit()
+
+    def generate_step_line(self, step_line, max_refs=2):
+        if len(step_line) < 200:
+            return step_line
+
+        def replacer(match):
+            refs = [r.strip() for r in match.group(1).split(',')]
+            truncated = refs[:max_refs]
+            removed_count = len(refs) - max_refs
+            if removed_count > 0:
+                return f"({','.join(truncated)}...+{removed_count} more)"
+            else:
+                return f"({','.join(truncated)})"
+
+        return re.sub(r'\((#\d+(?:,\s*#\d+)*)\)', replacer, step_line, count=1)
+
 class SqlEntityTableModel(QAbstractTableModel):
     def __init__(self, ifc_model, file_path):
         super().__init__()
         #db_path = f"db/{os.path.basename(file_path)}.sqlite3"
-        db_path = ":memory:" # Keep the database in memory for performance
+        #db_path = ":memory:" # Keep the database in memory for performance
                              # Can be exported to a file if needed
         self.file_path = file_path # The filepath of the ifc file
         self.ifc_model = ifc_model # The ifc_model loaded into memory
         #os.makedirs("db", exist_ok=True) # Make the db folder if it doesn't exist
 
-        self.db = sqlite3.connect(db_path)
+        self.db = sqlite3.connect(DB_URI, uri=True)
         self.db.row_factory = sqlite3.Row
-        self._columns = ["STEP ID", "Ifc Type", "GUID", "Name", "STEP Line"]
-        self.columns_sql = ", ".join(f'"{col}"' for col in self._columns) # Define the columns here and use this variable throughout the program
-
-        self.populate_db() # Add entites from the ifc model to the database
 
         # Default filter
         self._filter = ""
@@ -83,7 +162,7 @@ class SqlEntityTableModel(QAbstractTableModel):
 
     # Sorts the database view
     def sort(self, column, order):
-        self._sort_column = self._columns[column]
+        self._sort_column = COLUMNS[column]
         if order == Qt.AscendingOrder:
             self._sort_order = "ASC"
         else:
@@ -96,13 +175,13 @@ class SqlEntityTableModel(QAbstractTableModel):
         return self._row_count
 
     def columnCount(self, parent=QModelIndex()):
-        return len(self._columns)
+        return len(COLUMNS)
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role != Qt.DisplayRole:
             return None
         if orientation == Qt.Horizontal:
-            return self._columns[section].capitalize()
+            return COLUMNS[section].capitalize()
         return str(section + 1)
 
     def data(self, index, role=Qt.DisplayRole):
@@ -113,13 +192,13 @@ class SqlEntityTableModel(QAbstractTableModel):
         if not row:
             return None
 
-        column_name = self._columns[index.column()]
+        column_name = COLUMNS[index.column()]
 
         if column_name == "STEP ID": # If this is a step id, add a # to the beginning
                                      # Step ids are stored as integers so the # symbol must be added
             return f"#{row[column_name]}"
 
-        return row[self._columns[index.column()]]
+        return row[column_name]
 
     # Gets a row from the database by id
     # TODO: The cache probably helps but we should get the rows in batches instead of individually
@@ -129,80 +208,10 @@ class SqlEntityTableModel(QAbstractTableModel):
             return None
         row_id = self._row_ids[row_index]
         return self.db.execute(
-            f"SELECT {self.columns_sql} FROM base_entities WHERE id = ?",
+            f"SELECT {COLUMNS_SQL} FROM base_entities WHERE id = ?",
             (row_id,)
         ).fetchone()
-
-    # Initial population of the database with entities from the ifc model
-    def populate_db(self):
-        try:
-            self.db.execute("DROP TABLE IF EXISTS base_entities")
-            self.db.execute("DROP TABLE IF EXISTS fts_entities")
-        except Exception as e:
-            print(e)
-
-        # Create the base table and virtual table
-        try:
-            self.db.execute(f"CREATE TABLE base_entities (id INTEGER PRIMARY KEY,{self.columns_sql})")
-        except Exception as e:
-            print(f"failed to create base_entities\n{e}")
-
-        try:
-            self.db.execute(f"""CREATE VIRTUAL TABLE fts_entities USING fts5(
-                {self.columns_sql},
-                content='base_entities',
-                content_rowid='id',
-                tokenize='trigram remove_diacritics 1',
-                )
-            """)
-        except Exception as e:
-            print(f"failed to create fts_entities\n{e}")
-
-        try:
-            batch = []
-            for entity in list(self.ifc_model):
-                info = entity.get_info()
-                batch.append([
-                    entity.id(),                    # STEP ID
-                    entity.is_a(),                  # Ifc Type
-                    info.get("GlobalId", ""),       # GUID
-                    info.get("Name", ""),           # Name
-                    self.generate_step_line(str(entity)) # If the step line contains a long list of references, truncate the list and keep everything else
-                ])
-
-            # DB optimizations for faster inserts
-            self.db.execute("PRAGMA journal_mode = OFF")
-            self.db.execute("PRAGMA synchronous = OFF")
-            self.db.execute("PRAGMA locking_mode = EXCLUSIVE")
-            self.db.execute("PRAGMA temp_store = MEMORY")
-            self.db.execute("PRAGMA cache_size = -100000")  # Approx. 100MB
-
-            # Execute all inserts in one batch
-            self.db.execute("BEGIN TRANSACTION")
-            self.db.executemany(f"INSERT INTO base_entities ({self.columns_sql}) VALUES (?, ?, ?, ?, ?)", batch)
-            self.db.execute("COMMIT")
-
-            self.db.execute("INSERT INTO fts_entities(fts_entities) VALUES ('rebuild')")
-            self.db.commit()
-
-        except Exception as e:
-            print(f"Failed to populate DB\n{e}")
-    
-    def generate_step_line(self, step_line, max_refs=2):
-        if len(step_line) < 200:
-            return step_line
-
-        def replacer(match):
-            refs = [r.strip() for r in match.group(1).split(',')]
-            truncated = refs[:max_refs]
-            removed_count = len(refs) - max_refs
-            if removed_count > 0:
-                return f"({','.join(truncated)}...+{removed_count} more)"
-            else:
-                return f"({','.join(truncated)})"
-
-        return re.sub(r'\((#\d+(?:,\s*#\d+)*)\)', replacer, step_line, count=1)
-
+   
 class IfcViewer(QMainWindow):
     def __init__(self, ifc_file=None):
         super().__init__()
@@ -297,7 +306,7 @@ class IfcViewer(QMainWindow):
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
 
         toolbar.addAction(QAction("Open File", self, triggered=self.open_ifc_file))
-        toolbar.addAction(QAction("Load Entities", self, triggered=self.load_db)) # Large files take a long time 
+        toolbar.addAction(QAction("Load Entities", self, triggered=self.start_load_db_task)) # Large files take a long time 
                                                                                         # so only load entities when the user clicks the button
         toolbar.addAction(QAction("Assembly Exporter", self, triggered=self.show_assemblies_window))
 
@@ -403,21 +412,35 @@ class IfcViewer(QMainWindow):
     def load_ifc(self, file_path):
         self.setWindowTitle(os.path.basename(file_path))
         self.file_path = file_path
-        #self.ifc_model = ifcopenshell.open(self.file_path)
         self.start_load_ifc_task(file_path)
    
     def start_load_ifc_task(self, file_path):
         self.status_label.setText(f"Now loading: {os.path.basename(file_path)}")
         self.spinner_timer.start()
 
-        self.load_ifc_worker = LoadIFCWorker(task_fn=lambda: ifcopenshell.open(file_path))
+        self.load_ifc_worker = SimpleIFCWorker(task_fn=lambda: ifcopenshell.open(file_path))
         self.load_ifc_worker.progress.connect(self.update_spinner)
         self.load_ifc_worker.finished.connect(self.ifc_file_loaded)
         self.load_ifc_worker.start()
     
     def start_load_db_task(self):
-        pass
-    
+        if not self.spinner_timer.isActive():
+            self.status_label.setText(f"Now loading IFC model into view")
+            self.spinner_timer.start()
+
+            self.load_db_worker = DBWorker(self.ifc_model)
+            self.load_db_worker.progress.connect(self.update_spinner)
+            self.load_db_worker.finished.connect(self.load_db_finished)
+            self.load_db_worker.start()
+
+    @Slot()
+    def load_db_finished(self):
+        self.spinner_timer.stop()
+        self.status_label.setText(f"Finished loading {os.path.basename(self.file_path)}")
+        self.middle_model = SqlEntityTableModel(self.ifc_model, self.file_path)
+        self.middle_view.setModel(self.middle_model)
+        self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
+   
     @Slot(int)
     def update_spinner(self):
         frame = self.spinner_frames[self.current_frame % len(self.spinner_frames)]
@@ -431,7 +454,6 @@ class IfcViewer(QMainWindow):
             self.status_label.setText(result)
         else:
             try:
-                self.status_label.setText("Finished loading IFC file.")
                 self.ifc_model = result
                 self.middle_view.setModel(None)
                 self.left_model.removeRows(0, self.left_model.rowCount())
@@ -449,11 +471,6 @@ class IfcViewer(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
         
-    def load_db(self):
-        self.middle_model = SqlEntityTableModel(ifc_model=self.ifc_model, file_path=self.file_path)
-        self.middle_view.setModel(self.middle_model)
-        self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
-
     def search_db(self, text):
         cursor = self.middle_model.search(text)
         return cursor.fetchall()
@@ -653,8 +670,9 @@ class IfcViewer(QMainWindow):
 # ==============================
 
     def show_assemblies_window(self):
-        self.assembly_viewer = AssemblyViewerWindow(title=self.file_path, ifc_model=self.ifc_model)
-        self.assembly_viewer.show()
+        if not self.spinner_timer.isActive(): # If the application isn't currently loading or displaying an IFC file
+            self.assembly_viewer = AssemblyViewerWindow(title=self.file_path, ifc_model=self.ifc_model)
+            self.assembly_viewer.show()
 
 if __name__ == "__main__":
     file_path = sys.argv[1] if len(sys.argv) > 1 else None
