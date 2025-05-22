@@ -13,10 +13,22 @@ from PySide6.QtWidgets import (
     QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView, QHeaderView
 )
 from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QThread, Signal, Slot, QTimer
+import time
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
 
+class LoadIFCWorker(QThread):
+    progress = Signal(int)
+    finished = Signal(object)
+    def __init__(self, task_fn):
+        super().__init__()
+        self.task_fn = task_fn
+
+    def run(self):
+        result = self.task_fn()
+        self.finished.emit(result)
+        
 class SqlEntityTableModel(QAbstractTableModel):
     def __init__(self, ifc_model, file_path):
         super().__init__()
@@ -272,6 +284,14 @@ class IfcViewer(QMainWindow):
         self.middle_view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.middle_view.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
 
+        # Loading spinner
+        self.spinner_frames = ["|", "/", "-", "\\"]
+        self.current_frame = 0
+        
+        self.spinner_timer = QTimer()
+        self.spinner_timer.setInterval(100)
+        self.spinner_timer.timeout.connect(self.update_spinner)
+
     def add_toolbar(self):
         toolbar = QToolBar("Main Toolbar")
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
@@ -382,25 +402,52 @@ class IfcViewer(QMainWindow):
  
     def load_ifc(self, file_path):
         self.setWindowTitle(os.path.basename(file_path))
-        try:
-            self.ifc_model = ifcopenshell.open(file_path)
-            self.file_path = file_path
+        self.file_path = file_path
+        #self.ifc_model = ifcopenshell.open(self.file_path)
+        self.start_load_ifc_task(file_path)
+   
+    def start_load_ifc_task(self, file_path):
+        self.status_label.setText(f"Now loading: {os.path.basename(file_path)}")
+        self.spinner_timer.start()
 
-            self.middle_view.setModel(None)
-            self.left_model.removeRows(0, self.left_model.rowCount())
-            self.right_model.removeRows(0, self.right_model.rowCount())
+        self.load_ifc_worker = LoadIFCWorker(task_fn=lambda: ifcopenshell.open(file_path))
+        self.load_ifc_worker.progress.connect(self.update_spinner)
+        self.load_ifc_worker.finished.connect(self.ifc_file_loaded)
+        self.load_ifc_worker.start()
+    
+    def start_load_db_task(self):
+        pass
+    
+    @Slot(int)
+    def update_spinner(self):
+        frame = self.spinner_frames[self.current_frame % len(self.spinner_frames)]
+        self.status_label.setText(f"{frame} Now loading: {os.path.basename(self.file_path)}")
+        self.current_frame += 1
+    
+    @Slot(object)
+    def ifc_file_loaded(self, result):
+        self.spinner_timer.stop()
+        if isinstance(result, str) and result.startswith("Error"):
+            self.status_label.setText(result)
+        else:
+            try:
+                self.status_label.setText("Finished loading IFC file.")
+                self.ifc_model = result
+                self.middle_view.setModel(None)
+                self.left_model.removeRows(0, self.left_model.rowCount())
+                self.right_model.removeRows(0, self.right_model.rowCount())
 
-            if file_path in self.recent_files:
-                self.recent_files.remove(file_path)
-            self.recent_files.insert(0, file_path)
-            self.recent_files = self.recent_files[:self.max_recent_files]
-            self.update_recent_files_menu()
-            self.save_recent_files()
-        
-            status_text = f"Loaded \"{os.path.basename(file_path)}\"\nPress the \"Load Entities\" button to view the contents"
-            self.status_label.setText(status_text)
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
+                if self.file_path in self.recent_files:
+                    self.recent_files.remove(self.file_path)
+                self.recent_files.insert(0, self.file_path)
+                self.recent_files = self.recent_files[:self.max_recent_files]
+                self.update_recent_files_menu()
+                self.save_recent_files()
+            
+                status_text = f"Loaded \"{os.path.basename(self.file_path)}\"\nPress the \"Load Entities\" button to view the contents"
+                self.status_label.setText(status_text)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
         
     def load_db(self):
         self.middle_model = SqlEntityTableModel(ifc_model=self.ifc_model, file_path=self.file_path)
