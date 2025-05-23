@@ -13,6 +13,7 @@ class OptionsWindow(QDialog):
         self.setWindowTitle(self.tr(title))
 
         self.resize(600, 400)
+        self.main_layout = QVBoxLayout(self)
 
         self.add_language_selector()
     
@@ -28,6 +29,7 @@ class OptionsWindow(QDialog):
         self.language_label = QLabel("Language")
         self.language_selector_layout.addWidget(self.language_label)
         self.language_selector_layout.addWidget(self.language_selector)
+        self.main_layout.addLayout(self.language_selector_layout)
     
     def emit_language_change(self):
         language_code = self.language_selector.currentData()
