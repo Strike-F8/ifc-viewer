@@ -1,6 +1,33 @@
-from PySide6.QtWidgets import QWidget, QLabel, QComboBox, QPushButton
+import sys
+from PySide6.QtWidgets import (
+    QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QDialog, QComboBox
+)
+from PySide6.QtCore import Signal
 
-class OptionsWindow(QWidget):
-    def __init__(self):
+class OptionsWindow(QDialog):
+    language_changed = Signal(str) # Signal the main application when the language is changed
+    def __init__(self, title="Options"):
         super().__init__()
-            pass
+        self.setWindowTitle(self.tr(title))
+
+        self.resize(600, 400)
+
+        self.add_language_selector()
+    
+    def add_language_selector(self):
+        self.language_selector = QComboBox()
+        # Add languages to the list of selectable languages
+        self.language_selector.addItem("English", "en")
+        self.language_selector.addItem("日本語", "jp")
+        # Send a signal to the main application when the user selects a language
+        self.language_selector.currentIndexChanged.connect(self.emit_language_change)
+
+        self.language_selector_layout = QHBoxLayout()
+        self.language_label = QLabel("Language")
+        self.language_selector_layout.addWidget(self.language_label)
+        self.language_selector_layout.addWidget(self.language_selector)
+    
+    def emit_language_change(self):
+        language_code = self.language_selector.currentData()
+        self.language_changed.emit(language_code) # Send the language code along with the signal
