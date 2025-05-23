@@ -6,13 +6,14 @@ import ifcopenshell
 from assembly_viewer import AssemblyViewerWindow
 from db import DBWorker, SqlEntityTableModel
 from options import OptionsWindow
+from ui import LanguageManager, TAction, language_manager
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget, QLabel,
     QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView, QHeaderView
 )
 from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer
+from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__),"config.json") # Save the recent files list
 DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be shared between threads
@@ -36,7 +37,7 @@ class SimpleIFCWorker(QThread):
 class IfcViewer(QMainWindow):
     def __init__(self, ifc_file=None):
         super().__init__()
-        self.setWindowTitle(self.tr("IFC Reference Viewer"))
+        self.setWindowTitle("IFC Reference Viewer")
         self.file_path = ifc_file
         self.filter_cache = []
 
@@ -68,14 +69,14 @@ class IfcViewer(QMainWindow):
 
         self.left_view = QTreeView()
         self.left_model = QStandardItemModel()
-        self.left_model.setHorizontalHeaderLabels([self.tr('References -> Entity')])
+        self.left_model.setHorizontalHeaderLabels(['References -> Entity'])
         self.left_view.setModel(self.left_model)
         self.left_view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.left_view.customContextMenuRequested.connect(lambda pos, v=self.left_view: self.show_context_menu(pos, v))
 
         self.right_view = QTreeView()
         self.right_model = QStandardItemModel()
-        self.right_model.setHorizontalHeaderLabels([self.tr('Entity <- Referenced By')])
+        self.right_model.setHorizontalHeaderLabels(['Entity <- Referenced By'])
         self.right_view.setModel(self.right_model)
         self.right_view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.right_view.customContextMenuRequested.connect(lambda pos, v=self.right_view: self.show_context_menu(pos, v))
@@ -123,39 +124,37 @@ class IfcViewer(QMainWindow):
         self.spinner_timer.timeout.connect(self.update_spinner)
 
     def add_toolbar(self):
-        toolbar = QToolBar(self.tr("Main Toolbar"))
+        toolbar = QToolBar("Main Toolbar")
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
-
-        toolbar.addAction(QAction(self.tr("Open File"), self, triggered=self.open_ifc_file))
-        toolbar.addAction(QAction(self.tr("Load Entities"), self, triggered=self.start_load_db_task)) # Large files take a long time 
-                                                                                        # so only load entities when the user clicks the button
-        toolbar.addAction(QAction(self.tr("Assembly Exporter"), self, triggered=self.show_assemblies_window))
-        toolbar.addAction(QAction(self.tr("Options"), self, triggered=self.show_options_window))
+        toolbar.addAction(TAction("Open File", self, triggered=self.open_ifc_file, tooltip="Load a new IFC file"))
+        toolbar.addAction(TAction("Load Entities", self, triggered=self.start_load_db_task, tooltip="Display the IFC file contents"))
+        toolbar.addAction(TAction("Assembly Exporter", self, triggered=self.show_assemblies_window, tooltip="Open a new window for exporting assemblies"))
+        toolbar.addAction(TAction("Options", self, triggered=self.show_options_window, tooltip="Show the options window"))
 
     def add_status_label(self):
-        self.status_label = QLabel(self.tr("＜ーChoose an IFC file to open"))
+        self.status_label = QLabel("＜ーChoose an IFC file to open")
         self.status_label.setMinimumHeight(20)
         self.status_label.setMaximumHeight(35)
 
     def add_file_menu(self):
         self.menubar = self.menuBar()
-        file_menu = self.menubar.addMenu(self.tr("File"))
+        file_menu = self.menubar.addMenu("File")
 
-        file_menu.addAction(QAction(self.tr("Open"), self, triggered=self.open_ifc_file))
-        file_menu.addAction(QAction(self.tr("New Window"), self, triggered=self.open_new_window))
+        file_menu.addAction(QAction("Open", self, triggered=self.open_ifc_file))
+        file_menu.addAction(QAction("New Window", self, triggered=self.open_new_window))
 
-        self.recent_menu = QMenu(self.tr("Recent Files"), self)
+        self.recent_menu = QMenu("Recent Files", self)
         file_menu.addMenu(self.recent_menu)
         self.update_recent_files_menu()
 
     def add_filter_bar(self):
         self.filter_bar = QLineEdit(self)
-        self.filter_bar.setPlaceholderText(self.tr("Press ENTER to filter entities..."))
+        self.filter_bar.setPlaceholderText("Press ENTER to filter entities...")
         self.filter_bar.textChanged.connect(self.apply_filter)
     
     def add_filter_button(self):
         self.filter_button = QPushButton(self)
-        self.filter_button.setText(self.tr("Filter"))
+        self.filter_button.setText("Filter")
         self.filter_button.clicked.connect(self.apply_filter)
 
     def apply_filter(self):
@@ -184,25 +183,25 @@ class IfcViewer(QMainWindow):
         
         menu = QMenu()
         # Copy the step line of the current item
-        copy_step_line_action = QAction(self.tr(f"Copy STEP Line #{entity.id()}"), menu)
+        copy_step_line_action = QAction(f"Copy STEP Line #{entity.id()}", menu)
         copy_step_line_action.triggered.connect(lambda: self.copy_step_line(entity))
         menu.addAction(copy_step_line_action)
 
         # Copy the step id of the current item
-        copy_step_id_action = QAction(self.tr(f"Copy STEP ID #{entity.id()}"), menu) 
+        copy_step_id_action = QAction(f"Copy STEP ID #{entity.id()}", menu) 
         copy_step_id_action.triggered.connect(lambda: self.copy_step_id(entity))
         menu.addAction(copy_step_id_action)
 
         # Copy the GUID of the current item
         try:
-            copy_guid_action = QAction(self.tr(f"Copy GUID {entity.GlobalId}"))
+            copy_guid_action = QAction(f"Copy GUID {entity.GlobalId}")
             copy_guid_action.triggered.connect(lambda: self.copy_guid(entity))
             menu.addAction(copy_guid_action)
         except:
             pass # Some entities do not have GUID so skip
 
         # Copy the current item
-        copy_row_action = QAction(self.tr("Copy This Row"), menu)
+        copy_row_action = QAction("Copy This Row", menu)
         copy_row_action.triggered.connect(lambda: self.copy_row_text(view, index.row()))
         menu.addAction(copy_row_action)
 
@@ -237,7 +236,7 @@ class IfcViewer(QMainWindow):
         self.start_load_ifc_task(file_path)
    
     def start_load_ifc_task(self, file_path):
-        self.status_label.setText(self.tr(f"Now loading: {os.path.basename(file_path)}"))
+        self.status_label.setText(f"Now loading: {os.path.basename(file_path)}")
         self.spinner_timer.start()
 
         self.load_ifc_worker = SimpleIFCWorker(task_fn=lambda: ifcopenshell.open(file_path))
@@ -247,7 +246,7 @@ class IfcViewer(QMainWindow):
     
     def start_load_db_task(self):
         if not self.spinner_timer.isActive():
-            self.status_label.setText(self.tr("Now loading IFC model into view"))
+            self.status_label.setText("Now loading IFC model into view")
             self.spinner_timer.start()
 
             self.load_db_worker = DBWorker(self.ifc_model)
@@ -258,7 +257,7 @@ class IfcViewer(QMainWindow):
     @Slot()
     def load_db_finished(self):
         self.spinner_timer.stop()
-        self.status_label.setText(self.tr(f"Finished loading {os.path.basename(self.file_path)}"))
+        self.status_label.setText(f"Finished loading {os.path.basename(self.file_path)}")
         self.middle_model = SqlEntityTableModel(self.ifc_model, self.file_path)
         self.middle_view.setModel(self.middle_model)
         self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
@@ -266,7 +265,7 @@ class IfcViewer(QMainWindow):
     @Slot(int)
     def update_spinner(self):
         frame = self.spinner_frames[self.current_frame % len(self.spinner_frames)]
-        self.status_label.setText(self.tr(f"{frame} Now loading: {os.path.basename(self.file_path)}"))
+        self.status_label.setText(f"{frame} Now loading: {os.path.basename(self.file_path)}")
         self.current_frame += 1
     
     @Slot(object)
@@ -288,10 +287,10 @@ class IfcViewer(QMainWindow):
                 self.update_recent_files_menu()
                 self.save_recent_files()
             
-                status_text = self.tr(f"Loaded \"{os.path.basename(self.file_path)}\"\nPress the \"Load Entities\" button to view the contents")
+                status_text = f"Loaded \"{os.path.basename(self.file_path)}\"\nPress the \"Load Entities\" button to view the contents"
                 self.status_label.setText(status_text)
             except Exception as e:
-                QMessageBox.critical(self, self.tr("Error"), self.tr(f"Failed to open IFC file:\n{str(e)}"))
+                QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
         
     def search_db(self, text):
         cursor = self.middle_model.search(text)
@@ -332,10 +331,10 @@ class IfcViewer(QMainWindow):
             with open(CONFIG_PATH, 'w') as f:
                 json.dump({"recent_files": self.recent_files}, f)
         except Exception as e:
-            print(self.tr("Error saving config:"), e)
+            print("Error saving config:", e)
 
     def open_ifc_file(self):
-        path, _ = QFileDialog.getOpenFileName(self, self.tr("Open IFC File"), self.tr(""), self.tr("IFC Files (*.ifc)"))
+        path, _ = QFileDialog.getOpenFileName(self, "Open IFC File", "", "IFC Files (*.ifc)")
         if path:
             self.load_ifc(path)
 
@@ -363,7 +362,7 @@ class IfcViewer(QMainWindow):
             # Update the right view
             self.populate_right_view(entity)
         
-        self.status_label.setText(self.tr(f"Selected entity #{entity.id()}"))
+        self.status_label.setText(f"Selected entity #{entity.id()}")
 
     def populate_right_view(self, entity):
         self.right_model.removeRows(0, self.right_model.rowCount())
@@ -377,7 +376,7 @@ class IfcViewer(QMainWindow):
         if not item:
             return
 
-        if item.hasChildren() and item.child(0).text() == self.tr("Loading..."):
+        if item.hasChildren() and item.child(0).text() == "Loading...":
             item.removeRows(0, item.rowCount())  # Remove placeholder
 
             entity = item.data()
@@ -430,7 +429,7 @@ class IfcViewer(QMainWindow):
                 child = QStandardItem(self.create_entity_label(attr))
                 child.setData(attr)
                 if lazy:
-                    child.appendRow(QStandardItem(self.tr("Loading...")))
+                    child.appendRow(QStandardItem("Loading..."))
                 else:
                     self.expand_entity_tree(child, attr, lazy)
                 child.setFlags(child.flags() & ~Qt.ItemIsEditable)
@@ -456,7 +455,7 @@ class IfcViewer(QMainWindow):
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
         # Add placeholder child so it's expandable
-        item.appendRow(QStandardItem(self.tr("Loading...")))
+        item.appendRow(QStandardItem("Loading..."))
         return item
     
     def lazy_load_inverse_references(self, index):
@@ -468,7 +467,7 @@ class IfcViewer(QMainWindow):
             return
 
         # Check if already loaded
-        if item.hasChildren() and item.child(0).text() == self.tr("Loading..."):
+        if item.hasChildren() and item.child(0).text() == "Loading...":
             item.removeRows(0, item.rowCount())  # Remove placeholder
 
             entity = item.data()
@@ -502,7 +501,7 @@ class IfcViewer(QMainWindow):
 
     def show_options_window(self):
         if not self.spinner_timer.isActive():
-            self.options_window = OptionsWindow(title=self.tr("IFCViewer Options"))
+            self.options_window = OptionsWindow(title="IFCViewer Options")
             self.options_window.show()
 
 if __name__ == "__main__":

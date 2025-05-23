@@ -1,4 +1,6 @@
 import sys
+from ui import language_manager
+
 from PySide6.QtWidgets import (
     QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QDialog, QComboBox
@@ -6,7 +8,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal
 
 class OptionsWindow(QDialog):
-    language_changed = Signal(str) # Signal the main application when the language is changed
     def __init__(self, title="Options"):
         super().__init__()
         self.setWindowTitle(self.tr(title))
@@ -30,4 +31,4 @@ class OptionsWindow(QDialog):
     
     def emit_language_change(self):
         language_code = self.language_selector.currentData()
-        self.language_changed.emit(language_code) # Send the language code along with the signal
+        language_manager.language_changed.emit(language_code) # notify the ui that the language changed
