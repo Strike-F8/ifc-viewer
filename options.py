@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Signal
 
-class OptionsWindow(QDialog):
+class OptionsDialog(QDialog):
     def __init__(self, title="Options"):
         super().__init__()
         self.setWindowTitle(self.tr(title))

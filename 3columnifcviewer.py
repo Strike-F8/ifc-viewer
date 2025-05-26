@@ -5,7 +5,7 @@ import ifcopenshell
 
 from assembly_viewer import AssemblyViewerWindow
 from db import DBWorker, SqlEntityTableModel
-from options import OptionsWindow
+from options import OptionsDialog
 from ui import LanguageManager, TAction, language_manager
 
 from PySide6.QtWidgets import (
@@ -496,13 +496,13 @@ class IfcViewer(QMainWindow):
             self.assembly_viewer.show()
 
 # ==============================
-# Options window
+# Options dialog
 # ==============================
 
     def show_options_window(self):
         if not self.spinner_timer.isActive():
-            self.options_window = OptionsWindow(title="IFCViewer Options")
-            self.options_window.show()
+            self.options_dialog = OptionsDialog(title="IFCViewer Options")
+            self.options_dialog.exec() # Block the main window while the options dialog is open
 
 if __name__ == "__main__":
     file_path = sys.argv[1] if len(sys.argv) > 1 else None
