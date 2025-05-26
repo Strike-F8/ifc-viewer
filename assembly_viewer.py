@@ -62,11 +62,6 @@ class AssemblyViewerWindow(QMainWindow):
         # Initialize app settings
         self.init_settings()
 
-        self.title = title
-        if self.title:
-            self.setWindowTitle(f"Assemblies found in {self.title}")
-        else:
-            self.setWindowTitle("Assembly Viewer")
 
         self.resize(600, 400)
 
@@ -90,6 +85,12 @@ class AssemblyViewerWindow(QMainWindow):
         self.assembly_table = QTableView()
         self.model = AssemblyTableModel(assemblies=self.find_assemblies())
         self.assembly_table.setModel(self.model)
+
+        self.title = title
+        if self.title:
+            self.setWindowTitle(f"{len(self.model.rowCount())} Assemblies found in {self.title}")
+        else:
+            self.setWindowTitle("Assembly Viewer")
 
         self.assembly_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.assembly_table.setSelectionMode(QAbstractItemView.ExtendedSelection)

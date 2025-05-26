@@ -21,7 +21,7 @@ class TToolBar(QToolBar):
         self.create_actions() # Set the text for the actions on the toolbar
 
         self.addAction(self.open_file_action)
-        self.addAction(self.load_entities_action)                                                              # so only load entities when the user clicks the button
+        self.addAction(self.load_entities_action)
         self.addAction(self.show_assembly_exporter_action)
         self.addAction(self.show_options_action)
 
@@ -42,11 +42,10 @@ class TToolBar(QToolBar):
 # A QAction that translates itself upon receiving a language changed signal
 class TAction(QAction):
     def __init__(self, text, parent=None, *, triggered=None, triggered_args=None, tooltip=None, **kwargs):
-        # Save the translation key before passing it to super()
         self._text_key = text
         self._tooltip_key = tooltip
 
-        super().__init__(parent)
+        super().__init__(text, parent)  # important for immediate UI
 
         if triggered:
             if triggered_args is not None:
@@ -56,7 +55,11 @@ class TAction(QAction):
             else:
                 self.triggered.connect(triggered)
 
-        language_manager.language_changed.connect(self.translate)
+        try:
+            language_manager.language_changed.connect(self.translate)
+        except NameError:
+            pass  # handle if language_manager is not yet defined
+
         self.translate()
 
     def translate(self):

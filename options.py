@@ -3,9 +3,9 @@ from ui import language_manager
 
 from PySide6.QtWidgets import (
     QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QDialog, QComboBox
+    QDialog, QComboBox, QApplication
 )
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, QTranslator
 
 class OptionsDialog(QDialog):
     def __init__(self, title="Options"):
@@ -33,4 +33,5 @@ class OptionsDialog(QDialog):
     
     def emit_language_change(self):
         language_code = self.language_selector.currentData()
+        print(f"Switching to {language_code}")
         language_manager.language_changed.emit(language_code) # notify the ui that the language changed

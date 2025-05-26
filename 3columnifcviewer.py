@@ -6,14 +6,19 @@ import ifcopenshell
 from assembly_viewer import AssemblyViewerWindow
 from db import DBWorker, SqlEntityTableModel
 from options import OptionsDialog
-from ui import LanguageManager, TAction, language_manager
+from ui import TAction, language_manager
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget, QLabel,
     QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView, QHeaderView
 )
 from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator
+from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator, QCoreApplication
+
+# Translation imports
+from strings import (
+    MAIN_TOOLBAR_ACTION_KEYS, MAIN_TOOLBAR_TOOLTIP_KEYS, CONTEXT_MENU_ACTION_KEYS
+)
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__),"config.json") # Save the recent files list
 DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be shared between threads
@@ -37,7 +42,10 @@ class SimpleIFCWorker(QThread):
 class IfcViewer(QMainWindow):
     def __init__(self, ifc_file=None):
         super().__init__()
-        self.setWindowTitle("IFC Reference Viewer")
+        self.translator = None
+        language_manager.language_changed.connect(self.change_language)
+
+        self.setWindowTitle(self.tr("IFC Reference Viewer"))
         self.file_path = ifc_file
         self.filter_cache = []
 
@@ -126,10 +134,13 @@ class IfcViewer(QMainWindow):
     def add_toolbar(self):
         toolbar = QToolBar("Main Toolbar")
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
-        toolbar.addAction(TAction("Open File", self, triggered=self.open_ifc_file, tooltip="Load a new IFC file"))
-        toolbar.addAction(TAction("Load Entities", self, triggered=self.start_load_db_task, tooltip="Display the IFC file contents"))
-        toolbar.addAction(TAction("Assembly Exporter", self, triggered=self.show_assemblies_window, tooltip="Open a new window for exporting assemblies"))
-        toolbar.addAction(TAction("Options", self, triggered=self.show_options_window, tooltip="Show the options window"))
+
+        for label, tooltip, handler in zip(
+            MAIN_TOOLBAR_ACTION_KEYS,
+            MAIN_TOOLBAR_TOOLTIP_KEYS,
+            [self.open_ifc_file, self.start_load_db_task, self.show_assemblies_window, self.show_options_window]
+        ):
+            toolbar.addAction(TAction(label, self, tooltip=tooltip, triggered=handler))
 
     def add_status_label(self):
         self.status_label = QLabel("＜ーChoose an IFC file to open")
@@ -182,28 +193,22 @@ class IfcViewer(QMainWindow):
             return
         
         menu = QMenu()
-        # Copy the step line of the current item
-        copy_step_line_action = QAction(f"Copy STEP Line #{entity.id()}", menu)
-        copy_step_line_action.triggered.connect(lambda: self.copy_step_line(entity))
-        menu.addAction(copy_step_line_action)
 
-        # Copy the step id of the current item
-        copy_step_id_action = QAction(f"Copy STEP ID #{entity.id()}", menu) 
-        copy_step_id_action.triggered.connect(lambda: self.copy_step_id(entity))
-        menu.addAction(copy_step_id_action)
+        for label, handler in zip(
+            CONTEXT_MENU_ACTION_KEYS,
+            [self.copy_step_line, self.copy_step_id, self.copy_guid, self.copy_row_text]
+        ):
+            if "step" in label.lower():
+                new_label = label + str(entity.id())
+            elif "GUID" in label:
+                try:
+                    new_label = label + str(entity.GlobalId())
+                except:
+                    continue
+            else:
+                new_label = label
 
-        # Copy the GUID of the current item
-        try:
-            copy_guid_action = QAction(f"Copy GUID {entity.GlobalId}")
-            copy_guid_action.triggered.connect(lambda: self.copy_guid(entity))
-            menu.addAction(copy_guid_action)
-        except:
-            pass # Some entities do not have GUID so skip
-
-        # Copy the current item
-        copy_row_action = QAction("Copy This Row", menu)
-        copy_row_action.triggered.connect(lambda: self.copy_row_text(view, index.row()))
-        menu.addAction(copy_row_action)
+            menu.addAction(TAction(new_label, self, triggered=handler))
 
         # Show the context menu
         menu.exec(view.viewport().mapToGlobal(position))
@@ -492,7 +497,7 @@ class IfcViewer(QMainWindow):
 
     def show_assemblies_window(self):
         if not self.spinner_timer.isActive(): # If the application isn't currently loading or displaying an IFC file
-            self.assembly_viewer = AssemblyViewerWindow(title=self.file_path, ifc_model=self.ifc_model)
+            self.assembly_viewer = AssemblyViewerWindow(title=os.path.basename(self.file_path), ifc_model=self.ifc_model)
             self.assembly_viewer.show()
 
 # ==============================
@@ -501,8 +506,19 @@ class IfcViewer(QMainWindow):
 
     def show_options_window(self):
         if not self.spinner_timer.isActive():
-            self.options_dialog = OptionsDialog(title="IFCViewer Options")
+            self.options_dialog = OptionsDialog(title=self.tr("IFCViewer Options"))
             self.options_dialog.exec() # Block the main window while the options dialog is open
+
+    def change_language(self, language_code):
+        if self.translator:
+            QApplication.instance().removeTranslator(self.translator)
+
+        self.translator = QTranslator()
+        if self.translator.load(f"translations/{language_code}.qm"):
+            QApplication.instance().installTranslator(self.translator)
+            print(f"Installed {language_code} translator to main app")
+        else:
+            print(f"Unable to install {language_code} translator")
 
 if __name__ == "__main__":
     file_path = sys.argv[1] if len(sys.argv) > 1 else None
