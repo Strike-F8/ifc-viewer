@@ -88,7 +88,7 @@ class AssemblyViewerWindow(QMainWindow):
 
         self.title = title
         if self.title:
-            self.setWindowTitle(f"{len(self.model.rowCount())} Assemblies found in {self.title}")
+            self.setWindowTitle(f"{self.model.rowCount()} Assemblies found in {self.title}")
         else:
             self.setWindowTitle("Assembly Viewer")
 

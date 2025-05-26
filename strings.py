@@ -37,15 +37,15 @@ def mark_toolbar_translations():
 # ==============================
 
 CONTEXT_MENU_ACTION_KEYS = [
-    "Copy Step Line #",
-    "Copy STEP ID #",
-    "Copy GUID ",
+    "Copy Step Line #{id}",
+    "Copy Step ID #{id}",
+    "Copy GUID {guid}",
     "Copy This Row"
 ]
 # This function is never imported nor called
 # It only serves to supply markers for lupdate to pick up the strings
 def mark_context_menu_translations():
-    q.translate("TAction", "Copy Step Line #")
-    q.translate("TAction", "Copy STEP ID #")
-    q.translate("TAction", "Copy GUID ")
+    q.translate("TAction", "Copy Step Line #{id}")
+    q.translate("TAction", "Copy Step ID #{id}")
+    q.translate("TAction", "Copy GUID {guid}")
     q.translate("TAction", "Copy This Row")

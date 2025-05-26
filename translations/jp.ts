@@ -45,18 +45,30 @@
     </message>
     <message>
         <location filename="../strings.py" line="49"/>
-        <source>Copy Step Line #</source>
-        <translation>Step Lineをコピー：&#x3000;#</translation>
+        <source>Copy Step Line #{id}</source>
+        <translation>Step Line #{id} のコピー</translation>
     </message>
     <message>
         <location filename="../strings.py" line="50"/>
-        <source>Copy STEP ID #</source>
-        <translation>STEP IDをコピー： #</translation>
+        <source>Copy Step ID #{id}</source>
+        <translation>Step ID #{id} のコピー</translation>
     </message>
     <message>
         <location filename="../strings.py" line="51"/>
+        <source>Copy GUID {guid}</source>
+        <translation>GUID {guid} のコピー</translation>
+    </message>
+    <message>
+        <source>Copy Step Line #</source>
+        <translation type="vanished">Step Lineをコピー：&#x3000;#</translation>
+    </message>
+    <message>
+        <source>Copy STEP ID #</source>
+        <translation type="vanished">STEP IDをコピー： #</translation>
+    </message>
+    <message>
         <source>Copy GUID </source>
-        <translation>GUIDをコピー： </translation>
+        <translation type="vanished">GUIDをコピー： </translation>
     </message>
     <message>
         <location filename="../strings.py" line="51"/>

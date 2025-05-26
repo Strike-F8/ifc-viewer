@@ -199,16 +199,16 @@ class IfcViewer(QMainWindow):
             [self.copy_step_line, self.copy_step_id, self.copy_guid, self.copy_row_text]
         ):
             if "step" in label.lower():
-                new_label = label + str(entity.id())
+                action = TAction(label, self, triggered=handler, format_args={"id": entity.id()})
             elif "GUID" in label:
                 try:
-                    new_label = label + str(entity.GlobalId())
+                    action = TAction(label, self, triggered=handler, format_args={"guid": entity.GlobalId})
                 except:
                     continue
             else:
-                new_label = label
+                action = TAction(label, self, triggered=handler)
 
-            menu.addAction(TAction(new_label, self, triggered=handler))
+            menu.addAction(action)
 
         # Show the context menu
         menu.exec(view.viewport().mapToGlobal(position))
@@ -303,14 +303,14 @@ class IfcViewer(QMainWindow):
 
     def create_entity_label(self, entity):
         # get the attributes and attribute labels from the entity
-        label = "#{entity.id()} {entity.is_a()}".ljust(30)
+        label = f"#{entity.id()} {entity.is_a()}".ljust(30)
         try:# Try to add the guid if it exists
-            label += "GUID: {entity.GlobalId}"
+            label += f"GUID: {entity.GlobalId}"
         except:
             label += "GUID: None"
         
         try:# Try to add the name if it exists
-            label += " | Name: {entity.Name}"
+            label += f" | Name: {entity.Name}"
         except:
             label += " | Name: None"
 
