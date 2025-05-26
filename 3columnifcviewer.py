@@ -17,7 +17,8 @@ from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator, QCore
 
 # Translation imports
 from strings import (
-    MAIN_TOOLBAR_ACTION_KEYS, MAIN_TOOLBAR_TOOLTIP_KEYS, CONTEXT_MENU_ACTION_KEYS
+    MAIN_TOOLBAR_ACTION_KEYS, MAIN_TOOLBAR_TOOLTIP_KEYS, CONTEXT_MENU_ACTION_KEYS,
+    FILE_MENU_ACTION_KEYS, FILE_MENU_KEY, RECENT_FILES_MENU_KEY
 )
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__),"config.json") # Save the recent files list
@@ -25,6 +26,7 @@ DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be share
 
 # TODO: Clearer labels for the main 3 views for ease of use
 # TODO: Multiple language support
+
 # This simple worker takes in a line from the main thread and executes it in the background
 # It is used to execute ifcopenshell.open(file)
 # Large files can take some time to open so open them in the background and show a spinner in the meantime
@@ -149,12 +151,19 @@ class IfcViewer(QMainWindow):
 
     def add_file_menu(self):
         self.menubar = self.menuBar()
-        file_menu = self.menubar.addMenu("File")
+        file_menu = self.menubar.addMenu(FILE_MENU_KEY)
 
-        file_menu.addAction(QAction("Open", self, triggered=self.open_ifc_file))
-        file_menu.addAction(QAction("New Window", self, triggered=self.open_new_window))
+        file_menu_actions = [
+            self.open_ifc_file, self.open_new_window
+        ]
 
-        self.recent_menu = QMenu("Recent Files", self)
+        for label, handler in zip(
+            FILE_MENU_ACTION_KEYS,
+            file_menu_actions
+        ):
+            file_menu.addAction(TAction(label, self, triggered=handler))
+
+        self.recent_menu = QMenu(RECENT_FILES_MENU_KEY, self)
         file_menu.addMenu(self.recent_menu)
         self.update_recent_files_menu()
 

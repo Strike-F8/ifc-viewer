@@ -27,10 +27,10 @@ def mark_toolbar_translations():
     q.translate("TAction", "Options")
 
     # Toolbar Tooltips
-    q.translate("TAction", "Load a new IFC file")
-    q.translate("TAction", "Display the IFC file contents")
-    q.translate("TAction", "Export assemblies to a new IFC file")
-    q.translate("TAction", "Open the options window")
+    q.translate("Main Toolbar", "Load a new IFC file")
+    q.translate("Main Toolbar", "Display the IFC file contents")
+    q.translate("Main Toolbar", "Export assemblies to a new IFC file")
+    q.translate("Main Toolbar", "Open the options window")
     
 # ==============================
 # CONTEXT MENU
@@ -42,10 +42,31 @@ CONTEXT_MENU_ACTION_KEYS = [
     "Copy GUID {guid}",
     "Copy This Row"
 ]
+
 # This function is never imported nor called
 # It only serves to supply markers for lupdate to pick up the strings
 def mark_context_menu_translations():
-    q.translate("TAction", "Copy Step Line #{id}")
-    q.translate("TAction", "Copy Step ID #{id}")
-    q.translate("TAction", "Copy GUID {guid}")
-    q.translate("TAction", "Copy This Row")
+    q.translate("Entity Views Context Menu", "Copy Step Line #{id}")
+    q.translate("Entity Views Context Menu", "Copy Step ID #{id}")
+    q.translate("Entity Views Context Menu", "Copy GUID {guid}")
+    q.translate("Entity Views Context Menu", "Copy This Row")
+
+# ==============================
+# FILE MENU
+# ==============================
+
+FILE_MENU_KEY = "File"
+
+FILE_MENU_ACTION_KEYS = [
+    "Open",
+    "New Window",
+    "Recent Files"
+]
+
+RECENT_FILES_MENU_KEY = "Recent Files"
+
+def mark_file_menu_translations():
+    q.translate("Main File Menu", "File")
+    q.translate("Main File Menu", "Open")
+    q.translate("Main File Menu", "New Window")
+    q.translate("Main File Menu", "Recent Files")
