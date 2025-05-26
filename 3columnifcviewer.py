@@ -199,14 +199,14 @@ class IfcViewer(QMainWindow):
             [self.copy_step_line, self.copy_step_id, self.copy_guid, self.copy_row_text]
         ):
             if "step" in label.lower():
-                action = TAction(label, self, triggered=handler, format_args={"id": entity.id()})
+                action = TAction(label, self, triggered=handler, triggered_args=entity, format_args={"id": entity.id()})
             elif "GUID" in label:
                 try:
-                    action = TAction(label, self, triggered=handler, format_args={"guid": entity.GlobalId})
+                    action = TAction(label, self, triggered=handler, triggered_args=entity, format_args={"guid": entity.GlobalId})
                 except:
                     continue
             else:
-                action = TAction(label, self, triggered=handler)
+                action = TAction(label, self, triggered=handler, triggered_args=(view, index.row()))
 
             menu.addAction(action)
 
