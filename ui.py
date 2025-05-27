@@ -1,7 +1,7 @@
 from PySide6.QtCore import QObject, Signal, QCoreApplication
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QToolBar
+    QLabel
 )
 from functools import partial
 
@@ -70,7 +70,7 @@ class TAction(QAction):
                         if isinstance(self._format_args, tuple) else \
                         translated.format(**self._format_args)
                 except Exception as e:
-                    print(f"[Translation format error]: {e}")
+                    print(f"[{self._context} translation format error]: {e}")
             self.setText(translated)
 
         if self._tooltip_key:
@@ -80,5 +80,35 @@ class TAction(QAction):
                     if isinstance(self._format_args, tuple) else \
                     tooltip_translated.format(**self._format_args)
             except Exception as e:
-                print(f"[Tooltip format error]: {e}")
+                print(f"[{self._context} tooltip format error]: {e}")
             self.setToolTip(tooltip_translated)
+
+class TLabel(QLabel):
+    def __init__(self, text_key, parent=None, *,
+                 context=None, format_args=None, **kwargs):
+        super().__init__(parent, **kwargs)
+
+        self._text_key = text_key
+        self._context = context or self.__class__.__name__
+        self._format_args = format_args
+
+        language_manager.language_changed.connect(self.translate)
+        self.translate()
+
+    def translate(self):
+        translated = QCoreApplication.translate(self._context, self._text_key or "")
+        if self._format_args:
+            try:
+                translated = translated.format(*self._format_args) \
+                    if isinstance(self._format_args, tuple) else \
+                    translated.format(**self._format_args)
+            except Exception as e:
+                print(f"[{self._context} label format error]: {e}")
+        super().setText(translated)
+
+    def setText(self, text_key, *, format_args=None):
+        # Override setText to update the translation key and retranslate
+        self._text_key = text_key
+        if format_args is not None:
+            self._format_args = format_args
+        self.translate()

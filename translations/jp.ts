@@ -42,9 +42,44 @@
         <translation>新しいウインドウを開く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="72"/>
+        <location filename="../strings.py" line="78"/>
         <source>Recent Files</source>
         <translation>最近使ったファイル</translation>
+    </message>
+</context>
+<context>
+    <name>Main Status Label</name>
+    <message>
+        <location filename="../strings.py" line="89"/>
+        <source>＜ーChoose an IFC file to open</source>
+        <translation type="unfinished">＜ーIFCファイルの選択</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="90"/>
+        <source>Now loading: {file_path}</source>
+        <translation>{file_path}を読み込み中</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="91"/>
+        <source>Now loading IFC model into view</source>
+        <translation>IFCモデルをビューにロード中</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="92"/>
+        <source>Finished loading {file_path}</source>
+        <translation>{file_path}はロードが終わりました</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="93"/>
+        <source>Loaded {file_path}
+Press the &quot;Load Entities&quot; button to view the contents</source>
+        <translation>{file_path}を読み込みました
+ビューにロードするには「エンティティの読み込み」ボタンを押してください</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="93"/>
+        <source>Selected entity #{id}</source>
+        <translation>エンティティ #{id}を選択しています</translation>
     </message>
 </context>
 <context>

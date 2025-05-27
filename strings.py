@@ -52,7 +52,7 @@ def mark_context_menu_translations():
     q.translate("Entity Views Context Menu", "Copy This Row")
 
 # ==============================
-# FILE MENU
+# MAIN FILE MENU
 # ==============================
 
 FILE_MENU_KEY = "File"
@@ -70,3 +70,24 @@ def mark_file_menu_translations():
     q.translate("Main File Menu", "Open")
     q.translate("Main File Menu", "New Window")
     q.translate("Main File Menu", "Recent Files")
+
+# ==============================
+# MAIN STATUS LABEL
+# ==============================
+
+MAIN_STATUS_LABEL_KEYS = [
+    "＜ーChoose an IFC file to open",
+    "Now loading: {file_path}",
+    "Now loading IFC model into view",
+    "Finished loading {file_path}",
+    "Loaded {file_path}\nPress the \"Load Entities\" button to view the contents",
+    "Selected entity #{id}"
+]
+
+def mark_main_status_label_keys():
+    q.translate("Main Status Label", "＜ーChoose an IFC file to open")
+    q.translate("Main Status Label", "Now loading: {file_path}")
+    q.translate("Main Status Label", "Now loading IFC model into view")
+    q.translate("Main Status Label", "Finished loading {file_path}")
+    q.translate("Main Status Label", "Loaded {file_path}\nPress the \"Load Entities\" button to view the contents")
+    q.translate("Main Status Label", "Selected entity #{id}")

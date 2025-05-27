@@ -6,7 +6,6 @@ import ifcopenshell
 from assembly_viewer import AssemblyViewerWindow
 from db import DBWorker, SqlEntityTableModel
 from options import OptionsDialog
-from ui import TAction, language_manager
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget, QLabel,
@@ -16,14 +15,23 @@ from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
 from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator, QCoreApplication
 
 # Translation imports
+from ui import (language_manager,
+    TAction, TLabel
+)
+
 from strings import (
     MAIN_TOOLBAR_ACTION_KEYS, MAIN_TOOLBAR_TOOLTIP_KEYS, CONTEXT_MENU_ACTION_KEYS,
-    FILE_MENU_ACTION_KEYS, FILE_MENU_KEY, RECENT_FILES_MENU_KEY
+    FILE_MENU_ACTION_KEYS, FILE_MENU_KEY, RECENT_FILES_MENU_KEY, MAIN_STATUS_LABEL_KEYS
 )
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__),"config.json") # Save the recent files list
 DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be shared between threads
-
+                                                # SQLite is not thread safe and in memory databases are
+                                                # garbage collected upon closing the connection so this type of
+                                                # shared in-memory database allows a background thread to load
+                                                # the elements without blocking the main thread as long as the insert
+                                                # is finished before attempting to read.
+                                                
 # TODO: Clearer labels for the main 3 views for ease of use
 # TODO: Multiple language support
 
@@ -153,7 +161,8 @@ class IfcViewer(QMainWindow):
             toolbar.addAction(TAction(label, self, context="Main Toolbar", tooltip=tooltip, triggered=handler))
 
     def add_status_label(self):
-        self.status_label = QLabel("＜ーChoose an IFC file to open")
+        # ＜ーChoose an IFC file to open
+        self.status_label = TLabel(MAIN_STATUS_LABEL_KEYS[0], parent=self, context="Main Status Label")
         self.status_label.setMinimumHeight(20)
         self.status_label.setMaximumHeight(35)
 
@@ -222,7 +231,7 @@ class IfcViewer(QMainWindow):
         for label, handler in zip(
             CONTEXT_MENU_ACTION_KEYS,
             context_menu_actions
-        ):
+        ): # Not every entity has a GUID so skip
             if "step" in label.lower(): # If the step id is needed, pass it in as an argument
                 action = TAction(label, self, context=translator_context, triggered=handler, triggered_args=entity, format_args={"id": entity.id()})
             elif "GUID" in label: # If the GUID is needed, pass it in as an argument
@@ -266,7 +275,8 @@ class IfcViewer(QMainWindow):
         self.start_load_ifc_task(file_path)
    
     def start_load_ifc_task(self, file_path):
-        self.status_label.setText(f"Now loading: {os.path.basename(file_path)}")
+        # f"Now loading: {os.path.basename(file_path)}"
+        self.status_label.setText(MAIN_STATUS_LABEL_KEYS[1], format_args={"file_path": os.path.basename(file_path)})
         self.spinner_timer.start()
 
         self.load_ifc_worker = SimpleIFCWorker(task_fn=lambda: ifcopenshell.open(file_path))
@@ -276,7 +286,8 @@ class IfcViewer(QMainWindow):
     
     def start_load_db_task(self):
         if not self.spinner_timer.isActive():
-            self.status_label.setText("Now loading IFC model into view")
+            # "Now loading IFC model into view"
+            self.status_label.setText(MAIN_STATUS_LABEL_KEYS[2])
             self.spinner_timer.start()
 
             self.load_db_worker = DBWorker(self.ifc_model)
@@ -287,15 +298,21 @@ class IfcViewer(QMainWindow):
     @Slot()
     def load_db_finished(self):
         self.spinner_timer.stop()
-        self.status_label.setText(f"Finished loading {os.path.basename(self.file_path)}")
+        # f"Finished loading {os.path.basename(self.file_path)}"
+        self.status_label.setText(MAIN_STATUS_LABEL_KEYS[3], format_args={"file_path": os.path.basename(self.file_path)})
+
         self.middle_model = SqlEntityTableModel(self.ifc_model, self.file_path)
         self.middle_view.setModel(self.middle_model)
         self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
    
     @Slot(int)
     def update_spinner(self):
+        # TODO: Instead of a spinner, animate the text
         frame = self.spinner_frames[self.current_frame % len(self.spinner_frames)]
-        self.status_label.setText(f"{frame} Now loading: {os.path.basename(self.file_path)}")
+        current_text = self.status_label.text()
+        new_text = frame + current_text[1:]
+        self.status_label.setText(new_text) # To prevent overriding the translated text
+                                            # Only update the spinner
         self.current_frame += 1
     
     @Slot(object)
@@ -316,9 +333,8 @@ class IfcViewer(QMainWindow):
                 self.recent_files = self.recent_files[:self.max_recent_files]
                 self.update_recent_files_menu()
                 self.save_recent_files()
-            
-                status_text = f"Loaded \"{os.path.basename(self.file_path)}\"\nPress the \"Load Entities\" button to view the contents"
-                self.status_label.setText(status_text)
+                # f"Loaded {os.path.basename(self.file_path)}"\nPress the \"Load Entities\" button to view the contents"
+                self.status_label.setText(MAIN_STATUS_LABEL_KEYS[4], format_args={"file_path": os.path.basename(self.file_path)})
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to open IFC file:\n{str(e)}")
         
@@ -392,7 +408,8 @@ class IfcViewer(QMainWindow):
             # Update the right view
             self.populate_right_view(entity)
         
-        self.status_label.setText(f"Selected entity #{entity.id()}")
+        # f"Selected entity #{entity.id()}"
+        self.status_label.setText(MAIN_STATUS_LABEL_KEYS[5], format_args={"id": str(entity.id())})
 
     def populate_right_view(self, entity):
         self.right_model.removeRows(0, self.right_model.rowCount())
@@ -446,7 +463,7 @@ class IfcViewer(QMainWindow):
                 for key, value in info.items():
                     if key == "id" or key == "type":
                         continue
-                    label = "{key}: {value}"
+                    label = f"{key}: {value}"
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                     item.appendRow(QStandardItem(label))
 
