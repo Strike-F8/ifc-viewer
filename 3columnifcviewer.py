@@ -310,7 +310,12 @@ class IfcViewer(QMainWindow):
         # TODO: Instead of a spinner, animate the text
         frame = self.spinner_frames[self.current_frame % len(self.spinner_frames)]
         current_text = self.status_label.text()
-        new_text = frame + current_text[1:]
+
+        if current_text[0] in self.spinner_frames:
+            new_text = frame + current_text[1:]
+        else:
+            new_text = frame + current_text
+
         self.status_label.setText(new_text) # To prevent overriding the translated text
                                             # Only update the spinner
         self.current_frame += 1
@@ -380,6 +385,9 @@ class IfcViewer(QMainWindow):
             print("Error saving config:", e)
 
     def open_ifc_file(self):
+        if self.spinner_timer.isActive(): # Do not allow the user to use the toolbar while loading
+                                          # to prevent unexpected behavior
+            return
         path, _ = QFileDialog.getOpenFileName(self, "Open IFC File", "", "IFC Files (*.ifc)")
         if path:
             self.load_ifc(path)
