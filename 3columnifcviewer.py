@@ -25,12 +25,7 @@ from strings import (
 )
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__),"config.json") # Save the recent files list
-DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be shared between threads
-                                                # SQLite is not thread safe and in memory databases are
-                                                # garbage collected upon closing the connection so this type of
-                                                # shared in-memory database allows a background thread to load
-                                                # the elements without blocking the main thread as long as the insert
-                                                # is finished before attempting to read.
+from db import DB_URI
                                                 
 # TODO: Clearer labels for the main 3 views for ease of use
 # TODO: Multiple language support

@@ -4,6 +4,12 @@ import re
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QThread, Signal
 
 DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be shared between threads
+                                                # SQLite is not thread safe and in memory databases are
+                                                # garbage collected upon closing the connection so this type of
+                                                # shared in-memory database allows a background thread to load
+                                                # the elements without blocking the main thread as long as the insert
+                                                # is finished before attempting to read.
+
 COLUMNS = ["STEP ID", "Ifc Type", "GUID", "Name", "STEP Line"]
 COLUMNS_SQL = ", ".join(f'"{col}"' for col in COLUMNS) # Define the columns here and use this variable throughout the program
 
@@ -111,11 +117,11 @@ class SqlEntityTableModel(QAbstractTableModel):
         self._sort_column = "STEP ID" # Sort by step id
         self._sort_order = "ASC"
 
-        self._load_row_ids()
+        self._load_rows()
 
     # Display the entities contained in the database
     # Optionally filter and sort by conditions provided by the user
-    def _load_row_ids(self):
+    def _load_rows(self):
         if self._filter:
             query = f"""
                 SELECT rowid FROM fts_entities
@@ -136,7 +142,7 @@ class SqlEntityTableModel(QAbstractTableModel):
     # Get the filter text inputted by the user and display the data again
     def set_filter(self, filter_text):
         self._filter = filter_text.strip()
-        self._load_row_ids()
+        self._load_rows()
         self._get_row.cache_clear()
         self.layoutChanged.emit()
 
@@ -147,7 +153,7 @@ class SqlEntityTableModel(QAbstractTableModel):
             self._sort_order = "ASC"
         else:
             self._sort_order = "DESC"
-        self._load_row_ids()
+        self._load_rows()
         self._get_row.cache_clear()
         self.layoutChanged.emit()
 
@@ -161,7 +167,7 @@ class SqlEntityTableModel(QAbstractTableModel):
         if role != Qt.DisplayRole:
             return None
         if orientation == Qt.Horizontal:
-            return COLUMNS[section].capitalize()
+            return COLUMNS[section]
         return str(section + 1)
 
     def data(self, index, role=Qt.DisplayRole):
