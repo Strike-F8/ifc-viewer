@@ -52,7 +52,7 @@
     <message>
         <location filename="../strings.py" line="89"/>
         <source>＜ーChoose an IFC file to open</source>
-        <translation type="unfinished">＜ーIFCファイルの選択</translation>
+        <translation>＜ーIFCファイルの選択</translation>
     </message>
     <message>
         <location filename="../strings.py" line="90"/>
@@ -77,7 +77,7 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
 ビューにロードするには「エンティティの読み込み」ボタンを押してください</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="93"/>
+        <location filename="../strings.py" line="99"/>
         <source>Selected entity #{id}</source>
         <translation>エンティティ #{id}を選択しています</translation>
     </message>
@@ -130,6 +130,14 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
     <message>
         <source>Open File</source>
         <translation type="vanished">ファイルを開く</translation>
+    </message>
+</context>
+<context>
+    <name>Row Count</name>
+    <message>
+        <location filename="../strings.py" line="102"/>
+        <source>{items} rows</source>
+        <translation>{items}件</translation>
     </message>
 </context>
 <context>

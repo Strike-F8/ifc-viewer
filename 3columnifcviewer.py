@@ -21,7 +21,7 @@ from ui import (language_manager,
 
 from strings import (
     MAIN_TOOLBAR_ACTION_KEYS, MAIN_TOOLBAR_TOOLTIP_KEYS, CONTEXT_MENU_ACTION_KEYS,
-    FILE_MENU_ACTION_KEYS, FILE_MENU_KEY, RECENT_FILES_MENU_KEY, MAIN_STATUS_LABEL_KEYS
+    FILE_MENU_ACTION_KEYS, FILE_MENU_KEY, RECENT_FILES_MENU_KEY, MAIN_STATUS_LABEL_KEYS, ROW_COUNT_KEY
 )
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__),"config.json") # Save the recent files list
@@ -52,7 +52,6 @@ class IfcViewer(QMainWindow):
 
         self.setWindowTitle(self.tr("IFC Reference Viewer"))
         self.file_path = ifc_file
-        self.filter_cache = []
 
         if ifc_file:
             self.ifc_model = self.load_ifc(self.file_path)
@@ -63,6 +62,7 @@ class IfcViewer(QMainWindow):
         self.recent_files = self.load_recent_files()
 
         self.middle_model = None # Set this up later when the ifc file is loaded
+        self.row_count = 0
         self.middle_view = QTableView()
         self.middle_view.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.middle_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -70,6 +70,10 @@ class IfcViewer(QMainWindow):
         self.middle_view.verticalHeader().setDefaultSectionSize(20)
         self.middle_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.middle_view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+
+        self.row_count_label = TLabel(ROW_COUNT_KEY, context="Row Count", format_args={"items": self.row_count})
+        self.row_count_label.setAlignment(Qt.AlignCenter)
+        self.row_count_label.setMaximumHeight(15)
 
         self.middle_view.setWordWrap(False)
         for i in range(4):
@@ -119,6 +123,8 @@ class IfcViewer(QMainWindow):
         center_layout.addWidget(self.status_label)
         center_layout.addLayout(search_layout)
         center_layout.addWidget(splitter)
+        center_layout.addWidget(self.row_count_label)
+
         container = QWidget()
         container.setLayout(center_layout)
         self.setCentralWidget(container)
@@ -274,7 +280,11 @@ class IfcViewer(QMainWindow):
         self.status_label.setText(MAIN_STATUS_LABEL_KEYS[1], format_args={"file_path": os.path.basename(file_path)})
         self.spinner_timer.start()
 
-        self.load_ifc_worker = SimpleIFCWorker(task_fn=lambda: ifcopenshell.open(file_path))
+        try:
+            self.load_ifc_worker = SimpleIFCWorker(task_fn=lambda: ifcopenshell.open(file_path))
+        except FileNotFoundError as e:
+            QMessageBox.critical(self, "Error", f"File not found\n{str(e)}")
+            
         self.load_ifc_worker.progress.connect(self.update_spinner)
         self.load_ifc_worker.finished.connect(self.ifc_file_loaded)
         self.load_ifc_worker.start()
@@ -285,10 +295,16 @@ class IfcViewer(QMainWindow):
             self.status_label.setText(MAIN_STATUS_LABEL_KEYS[2])
             self.spinner_timer.start()
 
+            self.middle_model = None
+
             self.load_db_worker = DBWorker(self.ifc_model)
             self.load_db_worker.progress.connect(self.update_spinner)
             self.load_db_worker.finished.connect(self.load_db_finished)
             self.load_db_worker.start()
+
+    def update_row_count(self):
+        self.row_count = self.middle_model.rowCount()
+        self.row_count_label.setText(ROW_COUNT_KEY, format_args={"items": self.row_count})
 
     @Slot()
     def load_db_finished(self):
@@ -298,6 +314,7 @@ class IfcViewer(QMainWindow):
 
         self.middle_model = SqlEntityTableModel(self.ifc_model, self.file_path)
         self.middle_view.setModel(self.middle_model)
+        self.middle_model.row_count_changed.connect(self.update_row_count)
         self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
    
     @Slot(int)

@@ -91,3 +91,12 @@ def mark_main_status_label_keys():
     q.translate("Main Status Label", "Finished loading {file_path}")
     q.translate("Main Status Label", "Loaded {file_path}\nPress the \"Load Entities\" button to view the contents")
     q.translate("Main Status Label", "Selected entity #{id}")
+
+# ==============================
+# ROW COUNT
+# ==============================
+
+ROW_COUNT_KEY = "{items} rows"
+
+def mark_row_count_key():
+    q.translate("Row Count", "{items} rows")

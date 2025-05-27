@@ -1,4 +1,4 @@
-import sqlite3
+import apsw
 import functools
 import re
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QThread, Signal
@@ -12,6 +12,12 @@ DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be share
 
 COLUMNS = ["STEP ID", "Ifc Type", "GUID", "Name", "STEP Line"]
 COLUMNS_SQL = ", ".join(f'"{col}"' for col in COLUMNS) # Define the columns here and use this variable throughout the program
+
+STEP_ID_IDX = 0
+IFC_TYPE_IDX = 1
+GUID_IDX = 2
+NAME_IDX = 3
+STEP_LINE_IDX = 4
 
 # The DBWorker class populates the database used to display entities in the middle view.
 # SQLite is not thread safe but using the shared in memory database as defined in DB_URI,
@@ -27,61 +33,69 @@ class DBWorker(QThread):
         self.ifc_model = ifc_model
 
     def run(self):
-        with sqlite3.connect(DB_URI, uri=True) as conn: # Create a connection solely for inserting the elements in this background thread
+        conn = apsw.Connection(DB_URI)
+        cursor = conn.cursor()
+        # DB optimizations for faster inserts
+        # Perform these before apsw creates a transaction
+        cursor.execute("PRAGMA journal_mode = OFF")
+        cursor.execute("PRAGMA synchronous = OFF")
+        cursor.execute("PRAGMA locking_mode = EXCLUSIVE")
+        cursor.execute("PRAGMA temp_store = MEMORY")
+        cursor.execute("PRAGMA cache_size = -10000000")
+        cursor.close()
+
+        with apsw.Connection(DB_URI) as conn: # Create a connection solely for inserting the elements in this background thread
+            cursor = conn.cursor()
+
             try:
-                conn.execute("DROP TABLE IF EXISTS base_entities")
-                conn.execute("DROP TABLE IF EXISTS fts_entities")
+                cursor.execute("DROP TABLE IF EXISTS base_entities")
+                cursor.execute("DROP TABLE IF EXISTS fts_entities")
             except Exception as e:
                 print(e)
 
-            # Create the base table and virtual table
+            # Create the base table
             try:
-                conn.execute(f"CREATE TABLE base_entities (id INTEGER PRIMARY KEY,{COLUMNS_SQL})")
+                cursor.execute(f"CREATE TABLE base_entities (id INTEGER PRIMARY KEY,{COLUMNS_SQL})")
             except Exception as e:
                 print(f"failed to create base_entities\n{e}")
 
+            # populate the base table
             try:
-                conn.execute(f"""CREATE VIRTUAL TABLE fts_entities USING fts5(
-                    {COLUMNS_SQL},
-                    content='base_entities',
-                    content_rowid='id',
-                    tokenize='trigram remove_diacritics 1',
-                    )
-                """)
-            except Exception as e:
-                print(f"failed to create fts_entities\n{e}")
-
-            try:
-                batch = []
-                for entity in list(self.ifc_model):
-                    info = entity.get_info()
-                    batch.append([
-                        entity.id(),                    # STEP ID
-                        entity.is_a(),                  # Ifc Type
-                        info.get("GlobalId", ""),       # GUID
-                        info.get("Name", ""),           # Name
-                        self.generate_step_line(str(entity)) # If the step line contains a long list of references, truncate the list and keep everything else
-                    ])
-
-                # DB optimizations for faster inserts
-                conn.execute("PRAGMA journal_mode = OFF")
-                conn.execute("PRAGMA synchronous = OFF")
-                conn.execute("PRAGMA locking_mode = EXCLUSIVE")
-                conn.execute("PRAGMA temp_store = MEMORY")
-                conn.execute("PRAGMA cache_size = -100000")  # Approx. 100MB
+                def row_generator(): # Use a generator rather than a list for lower memory usage
+                    for entity in list(self.ifc_model):
+                        info = entity.get_info()
+                        yield [
+                            entity.id(),                    # STEP ID
+                            entity.is_a(),                  # Ifc Type
+                            info.get("GlobalId", ""),       # GUID
+                            info.get("Name", ""),           # Name
+                            self.generate_step_line(str(entity)) # If the step line contains a long list of references, truncate the list and keep everything else
+                        ]
 
                 # Execute all inserts in one batch
-                conn.execute("BEGIN TRANSACTION")
-                conn.executemany(f"INSERT INTO base_entities ({COLUMNS_SQL}) VALUES (?, ?, ?, ?, ?)", batch)
-                conn.execute("COMMIT")
+                cursor.executemany(f"INSERT INTO base_entities ({COLUMNS_SQL}) VALUES (?, ?, ?, ?, ?)", row_generator())
 
-                conn.execute("INSERT INTO fts_entities(fts_entities) VALUES ('rebuild')")
-                conn.commit()
+                # Create the virtual table for filtering
+                try:
+                    cursor.execute(f"""CREATE VIRTUAL TABLE fts_entities USING fts5(
+                        {COLUMNS_SQL},
+                        content='base_entities',
+                        content_rowid='id',
+                        tokenize='trigram remove_diacritics 1',
+                        )
+                    """)
+                except Exception as e:
+                    print(f"failed to create fts_entities\n{e}")
+
+                cursor.execute("INSERT INTO fts_entities(fts_entities) VALUES ('rebuild')")
+                
                 self.finished.emit()
+                cursor.close()
 
             except Exception as e:
                 print(f"Failed to populate DB\n{e}")
                 self.finished.emit()
+                cursor.close()
 
     # If the step line contains a long list of references, truncate it to lighten the load on the middle view
     def generate_step_line(self, step_line, max_refs=2):
@@ -103,13 +117,14 @@ class DBWorker(QThread):
 # Previously, it inserted the entities into the database. Now, it is only created
 # after the background thread is done inserting into the database.
 class SqlEntityTableModel(QAbstractTableModel):
+    row_count_changed = Signal(int)
+
     def __init__(self, ifc_model, file_path):
         super().__init__()
         self.file_path = file_path # The file path of the ifc file
         self.ifc_model = ifc_model # The ifc_model loaded into memory
 
-        self.db = sqlite3.connect(DB_URI, uri=True)
-        self.db.row_factory = sqlite3.Row # Return rows as dictionaries
+        self.db = apsw.Connection(DB_URI)
 
         # Default filter
         self._filter = ""
@@ -138,6 +153,7 @@ class SqlEntityTableModel(QAbstractTableModel):
 
         self._row_ids = [row[0] for row in rows]
         self._row_count = len(self._row_ids)
+        self.row_count_changed.emit(self._row_count)
 
     # Get the filter text inputted by the user and display the data again
     def set_filter(self, filter_text):
@@ -178,22 +194,21 @@ class SqlEntityTableModel(QAbstractTableModel):
         if not row:
             return None
 
-        column_name = COLUMNS[index.column()]
+        col = index.column()
 
-        if column_name == "STEP ID": # If this is a step id, add a # to the beginning
-                                     # Step ids are stored as integers so the # symbol must be added
-            return f"#{row[column_name]}"
+        if col == STEP_ID_IDX:
+            return f"#{row[STEP_ID_IDX]}"
 
-        return row[column_name]
+        return row[col]
 
     # Gets a row from the database by id
     # TODO: The cache probably helps but we should get the rows in batches instead of individually
     @functools.lru_cache(maxsize=4096) # _get_row is called many times so use a cache to optimize performance
-    def _get_row(self, row_index):
-        if row_index >= len(self._row_ids):
+    def _get_row(self, index):
+        if index >= len(self._row_ids):
             return None
-        row_id = self._row_ids[row_index]
-        return self.db.execute(
-            f"SELECT {COLUMNS_SQL} FROM base_entities WHERE id = ?",
-            (row_id,)
-        ).fetchone()
+
+        rowid = self._row_ids[index]
+        cursor = self.db.cursor()
+        cursor.execute(f"SELECT {COLUMNS_SQL} FROM base_entities WHERE id = ?", (rowid,))
+        return cursor.fetchone()
