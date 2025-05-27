@@ -137,12 +137,20 @@ class IfcViewer(QMainWindow):
         toolbar = QToolBar("Main Toolbar")
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
 
+        # A list functions triggered by buttons in the toolbar
+        # Order must match the order of strings imported from strings.py
+        main_toolbar_actions = [self.open_ifc_file,
+            self.start_load_db_task,
+            self.show_assemblies_window,
+            self.show_options_window
+        ]
+
         for label, tooltip, handler in zip(
             MAIN_TOOLBAR_ACTION_KEYS,
             MAIN_TOOLBAR_TOOLTIP_KEYS,
-            [self.open_ifc_file, self.start_load_db_task, self.show_assemblies_window, self.show_options_window]
+            main_toolbar_actions
         ):
-            toolbar.addAction(TAction(label, self, tooltip=tooltip, triggered=handler))
+            toolbar.addAction(TAction(label, self, context="Main Toolbar", tooltip=tooltip, triggered=handler))
 
     def add_status_label(self):
         self.status_label = QLabel("＜ーChoose an IFC file to open")
@@ -161,7 +169,7 @@ class IfcViewer(QMainWindow):
             FILE_MENU_ACTION_KEYS,
             file_menu_actions
         ):
-            file_menu.addAction(TAction(label, self, triggered=handler))
+            file_menu.addAction(TAction(label, self, context="Main File Menu", triggered=handler))
 
         self.recent_menu = QMenu(RECENT_FILES_MENU_KEY, self)
         file_menu.addMenu(self.recent_menu)
@@ -203,19 +211,27 @@ class IfcViewer(QMainWindow):
         
         menu = QMenu()
 
+        # A list of functions triggered by buttons in the context menu
+        context_menu_actions = [self.copy_step_line,
+            self.copy_step_id,
+            self.copy_guid,
+            self.copy_row_text
+        ]
+        translator_context = "Entity Views Context Menu"
+
         for label, handler in zip(
             CONTEXT_MENU_ACTION_KEYS,
-            [self.copy_step_line, self.copy_step_id, self.copy_guid, self.copy_row_text]
+            context_menu_actions
         ):
-            if "step" in label.lower():
-                action = TAction(label, self, triggered=handler, triggered_args=entity, format_args={"id": entity.id()})
-            elif "GUID" in label:
+            if "step" in label.lower(): # If the step id is needed, pass it in as an argument
+                action = TAction(label, self, context=translator_context, triggered=handler, triggered_args=entity, format_args={"id": entity.id()})
+            elif "GUID" in label: # If the GUID is needed, pass it in as an argument
                 try:
-                    action = TAction(label, self, triggered=handler, triggered_args=entity, format_args={"guid": entity.GlobalId})
-                except:
+                    action = TAction(label, self, context=translator_context, triggered=handler, triggered_args=entity, format_args={"guid": entity.GlobalId})
+                except: # Not every entity has a GUID so skip
                     continue
-            else:
-                action = TAction(label, self, triggered=handler, triggered_args=(view, index.row()))
+            else: # No arguments needed
+                action = TAction(label, self, context=translator_context, triggered=handler, triggered_args=(view, index.row()))
 
             menu.addAction(action)
 

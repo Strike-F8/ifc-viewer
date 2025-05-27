@@ -50,20 +50,24 @@
 <context>
     <name>Main Toolbar</name>
     <message>
+        <location filename="../strings.py" line="25"/>
         <source>Open File</source>
-        <translation type="vanished">ファイルを開く</translation>
+        <translation>ファイルを開く</translation>
     </message>
     <message>
+        <location filename="../strings.py" line="26"/>
         <source>Load Entities</source>
-        <translation type="vanished">エンティティの読み込み</translation>
+        <translation>エンティティの読み込み</translation>
     </message>
     <message>
+        <location filename="../strings.py" line="27"/>
         <source>Assembly Exporter</source>
-        <translation type="vanished">アッセンブリーの出力</translation>
+        <translation>アッセンブリーの出力</translation>
     </message>
     <message>
+        <location filename="../strings.py" line="30"/>
         <source>Options</source>
-        <translation type="vanished">設定</translation>
+        <translation>設定</translation>
     </message>
     <message>
         <location filename="../strings.py" line="31"/>
@@ -96,24 +100,20 @@
 <context>
     <name>TAction</name>
     <message>
-        <location filename="../strings.py" line="25"/>
         <source>Open File</source>
-        <translation>ファイルを開く</translation>
+        <translation type="vanished">ファイルを開く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="26"/>
         <source>Load Entities</source>
-        <translation>エンティティの読み込み</translation>
+        <translation type="vanished">エンティティの読み込み</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="27"/>
         <source>Assembly Exporter</source>
-        <translation>アッセンブリーの出力</translation>
+        <translation type="vanished">アッセンブリーの出力</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="30"/>
         <source>Options</source>
-        <translation>設定</translation>
+        <translation type="vanished">設定</translation>
     </message>
 </context>
 </TS>

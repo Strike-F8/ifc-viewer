@@ -21,10 +21,10 @@ MAIN_TOOLBAR_TOOLTIP_KEYS = [
 # It only serves to supply markers for lupdate to pick up the strings
 def mark_toolbar_translations():
     # Toolbar actions
-    q.translate("TAction", "Open File")
-    q.translate("TAction", "Load Entities")
-    q.translate("TAction", "Assembly Exporter")
-    q.translate("TAction", "Options")
+    q.translate("Main Toolbar", "Open File")
+    q.translate("Main Toolbar", "Load Entities")
+    q.translate("Main Toolbar", "Assembly Exporter")
+    q.translate("Main Toolbar", "Options")
 
     # Toolbar Tooltips
     q.translate("Main Toolbar", "Load a new IFC file")
