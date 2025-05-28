@@ -46,15 +46,20 @@ class SimpleIFCWorker(QThread):
         result = self.task_fn()
         self.finished.emit(result)
    
+# Main window consisting of three main views
+# The middle view connects to an SQLite database and displays entities from the IFC file
+# The left view shows entities referencing the currently selected entity
+# The right view shows entities referenced by the currently selected entity
 class IfcViewer(QMainWindow):
     def __init__(self, ifc_file=None):
         super().__init__()
-        self.translator = None
-        language_manager.language_changed.connect(self.change_language)
+        self.translator = None # QTranslator: Allows the ui to be translated on demand
+        language_manager.language_changed.connect(self.change_language) # Connect to the language manager in ui.py
 
-        self.setWindowTitle(self.tr("IFC Reference Viewer"))
+        self.setWindowTitle("IFC Viewer")
         self.file_path = ifc_file
 
+        # If an IFC file has already been provided, load it into memory
         if ifc_file:
             self.ifc_model = self.load_ifc(self.file_path)
         else:
@@ -64,9 +69,9 @@ class IfcViewer(QMainWindow):
         self.recent_files = self.load_recent_files()
 
         self.middle_model = None # Set this up later when the ifc file is loaded
-        self.row_count = 0
+        self.row_count = 0 # Count the number of rows displayed in the middle view
         self.middle_view = QTableView()
-        self.middle_view.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.middle_view.setSelectionBehavior(QAbstractItemView.SelectRows) # Select rows instead of cells
         self.middle_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.middle_view.setSortingEnabled(True) # Enable sort requests. However, the model, not the view, will handle the sort
         self.middle_view.verticalHeader().setDefaultSectionSize(20)
@@ -74,7 +79,6 @@ class IfcViewer(QMainWindow):
         self.middle_view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
         self.middle_view.setWordWrap(False)
-
 
         for i in range(4):
             self.middle_view.setColumnWidth(i, 100)
@@ -112,6 +116,7 @@ class IfcViewer(QMainWindow):
         # Update the views when selecting an item in the middle or left views
         self.left_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
 
+        # The three main views
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self.left_view)
         splitter.addWidget(self.middle_view)
@@ -139,6 +144,7 @@ class IfcViewer(QMainWindow):
         self.spinner_frames = ["|", "/", "-", "\\"]
         self.current_frame = 0
         
+        # Update the spinner every 100ms
         self.spinner_timer = QTimer()
         self.spinner_timer.setInterval(100)
         self.spinner_timer.timeout.connect(self.update_spinner)
@@ -188,10 +194,12 @@ class IfcViewer(QMainWindow):
 
     def add_filter_bar(self):
         self.filter_bar = QLineEdit(self)
-        self.filter_bar.setPlaceholderText("Press ENTER to filter entities...")
+        self.filter_bar.setPlaceholderText("Filter Entities...") # TODO: Implement TLineEdit for translation
         self.filter_bar.textChanged.connect(self.apply_filter)
     
     def add_filter_button(self):
+        # TODO: Currently serves no real purpose as the filter is updated on text change
+        # But maybe it should stay for user satisfaction
         self.filter_button = QPushButton(self)
         self.filter_button.setText("Filter")
         self.filter_button.clicked.connect(self.apply_filter)
@@ -202,7 +210,8 @@ class IfcViewer(QMainWindow):
 
     def add_count_and_progress_bar(self):
         self.row_count_bar_stack_widget = QWidget()
-        self.row_count_bar_stack_widget.setMaximumHeight(25)  # Roughly 2 lines
+        self.row_count_bar_stack_widget.setMaximumHeight(25)
+        # TODO: This is supposed to expand the widget only when necessary but it does not seem to do so
         self.row_count_bar_stack_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.row_count_bar_stack = QStackedLayout(self.row_count_bar_stack_widget)
@@ -246,14 +255,15 @@ class IfcViewer(QMainWindow):
         
         menu = QMenu()
 
-        # A list of functions triggered by buttons in the context menu
-        context_menu_actions = [self.copy_step_line,
+        # A list of functions triggered by the buttons in the context menu
+        context_menu_actions = [
+            self.copy_step_line,
             self.copy_step_id,
             self.copy_guid,
             self.copy_row_text
         ]
-        translator_context = "Entity Views Context Menu"
 
+        translator_context = "Entity Views Context Menu"
         for label, handler in zip(
             CONTEXT_MENU_ACTION_KEYS,
             context_menu_actions
@@ -305,6 +315,7 @@ class IfcViewer(QMainWindow):
         self.status_label.setText(MAIN_STATUS_LABEL_KEYS[1], format_args={"file_path": os.path.basename(file_path)})
         self.spinner_timer.start()
 
+        # TODO: FileNotFoundError is not being caught
         try:
             self.load_ifc_worker = SimpleIFCWorker(task_fn=lambda: ifcopenshell.open(file_path))
         except FileNotFoundError as e:
