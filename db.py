@@ -41,7 +41,7 @@ class DBWorker(QThread):
         cursor.execute("PRAGMA synchronous = OFF")
         cursor.execute("PRAGMA locking_mode = EXCLUSIVE")
         cursor.execute("PRAGMA temp_store = MEMORY")
-        cursor.execute("PRAGMA cache_size = -10000000")
+        cursor.execute("PRAGMA cache_size = -1000000")
         cursor.close()
 
         with apsw.Connection(DB_URI) as conn: # Create a connection solely for inserting the elements in this background thread

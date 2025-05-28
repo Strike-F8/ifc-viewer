@@ -27,7 +27,6 @@ from strings import (
 )
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__),"config.json") # Save the recent files list
-from db import DB_URI
                                                 
 # TODO: Clearer labels for the main 3 views for ease of use
 # TODO: Multiple language support

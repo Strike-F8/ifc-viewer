@@ -12,7 +12,7 @@ class OptionsDialog(QDialog):
         super().__init__()
         self.setWindowTitle(self.tr(title))
 
-        self.resize(600, 400)
+        self.resize(500, 100)
         self.main_layout = QVBoxLayout(self)
 
         self.add_language_selector()

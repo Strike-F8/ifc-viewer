@@ -137,7 +137,7 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
     <message>
         <location filename="../strings.py" line="104"/>
         <source>{items} rows</source>
-        <translation>{items}件</translation>
+        <translation>{items}項目</translation>
     </message>
     <message>
         <location filename="../strings.py" line="104"/>
