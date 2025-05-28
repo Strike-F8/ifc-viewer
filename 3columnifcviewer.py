@@ -1,7 +1,30 @@
+# Open a new window in a separate process from the file menu
+def open_new_window():
+    if getattr(sys, 'frozen', False):
+        # Nuitka or PyInstaller binary
+        command = [sys.executable]
+    else:
+        # Running as script
+        command = [sys.executable, os.path.abspath(__file__)]
+
+    if sys.platform == "win32":
+        subprocess.Popen(
+            command,
+            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+            close_fds=True
+        )
+    else:
+        subprocess.Popen(
+            command,
+            start_new_session=True,
+            close_fds=True
+        )
+
 import sys
 import os
 import json
 import ifcopenshell
+import subprocess
 
 from assembly_viewer import AssemblyViewerWindow
 from db import DBWorker, SqlEntityTableModel
@@ -178,7 +201,7 @@ class IfcViewer(QMainWindow):
         file_menu = self.menubar.addMenu(FILE_MENU_KEY)
 
         file_menu_actions = [
-            self.open_ifc_file, self.open_new_window
+            self.open_ifc_file, open_new_window
         ]
 
         for label, handler in zip(
@@ -460,10 +483,7 @@ class IfcViewer(QMainWindow):
         if path:
             self.load_ifc(path)
 
-    def open_new_window(self):
-        # TODO: New windows use the same database causing conflicts
-        self.new_window = IfcViewer()
-        self.new_window.show() 
+
 
     def handle_entity_selection(self, index):
         sender = self.sender()
@@ -648,3 +668,4 @@ if __name__ == "__main__":
     viewer.resize(1200, 600)
     viewer.show()
     sys.exit(app.exec())
+
