@@ -9,7 +9,8 @@ from options import OptionsDialog
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget, QLabel,
-    QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView, QHeaderView
+    QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView, QHeaderView,
+    QProgressBar, QStackedLayout, QSizePolicy
 )
 from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
 from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator, QCoreApplication
@@ -21,7 +22,8 @@ from ui import (language_manager,
 
 from strings import (
     MAIN_TOOLBAR_ACTION_KEYS, MAIN_TOOLBAR_TOOLTIP_KEYS, CONTEXT_MENU_ACTION_KEYS,
-    FILE_MENU_ACTION_KEYS, FILE_MENU_KEY, RECENT_FILES_MENU_KEY, MAIN_STATUS_LABEL_KEYS, ROW_COUNT_KEY
+    FILE_MENU_ACTION_KEYS, FILE_MENU_KEY, RECENT_FILES_MENU_KEY, MAIN_STATUS_LABEL_KEYS, ROW_COUNT_KEY,
+    BUILDING_INDEX_KEY
 )
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__),"config.json") # Save the recent files list
@@ -71,11 +73,9 @@ class IfcViewer(QMainWindow):
         self.middle_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.middle_view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
-        self.row_count_label = TLabel(ROW_COUNT_KEY, context="Row Count", format_args={"items": self.row_count})
-        self.row_count_label.setAlignment(Qt.AlignCenter)
-        self.row_count_label.setMaximumHeight(15)
-
         self.middle_view.setWordWrap(False)
+
+
         for i in range(4):
             self.middle_view.setColumnWidth(i, 100)
             
@@ -103,6 +103,7 @@ class IfcViewer(QMainWindow):
         self.add_file_menu()
         self.add_filter_bar()
         self.add_filter_button()
+        self.add_count_and_progress_bar()
 
         # Lazy load children upon expanding a root item
         self.left_view.expanded.connect(self.lazy_load_inverse_references)
@@ -123,7 +124,7 @@ class IfcViewer(QMainWindow):
         center_layout.addWidget(self.status_label)
         center_layout.addLayout(search_layout)
         center_layout.addWidget(splitter)
-        center_layout.addWidget(self.row_count_label)
+        center_layout.addWidget(self.row_count_bar_stack_widget)
 
         container = QWidget()
         container.setLayout(center_layout)
@@ -198,6 +199,30 @@ class IfcViewer(QMainWindow):
     def apply_filter(self):
         filter_term = self.filter_bar.text()
         self.middle_model.set_filter(filter_term)
+
+    def add_count_and_progress_bar(self):
+        self.row_count_bar_stack_widget = QWidget()
+        self.row_count_bar_stack_widget.setMaximumHeight(25)  # Roughly 2 lines
+        self.row_count_bar_stack_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+        self.row_count_bar_stack = QStackedLayout(self.row_count_bar_stack_widget)
+        self.row_count_bar_stack.setAlignment(Qt.AlignCenter)
+
+        self.row_count_label = TLabel(ROW_COUNT_KEY, context="Row Count", format_args={"items": self.row_count})
+        self.row_count_label.setAlignment(Qt.AlignCenter)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setAlignment(Qt.AlignCenter)
+        self.progress_bar.setStyleSheet("QProgressBar { background: transparent; }")
+
+        self.row_count_bar_stack.addWidget(self.row_count_label)
+        self.row_count_bar_stack.addWidget(self.progress_bar)
+
+        # Add the wrapped widget to the main layout
+        self.row_count_bar_stack_widget.raise_()  # If needed to ensure z-order
         
     # When clicking on an entity in either of the three views, show a context menu that allows the user to copy
     # the original step line of the entity
@@ -299,8 +324,15 @@ class IfcViewer(QMainWindow):
 
             self.load_db_worker = DBWorker(self.ifc_model)
             self.load_db_worker.progress.connect(self.update_spinner)
+            self.load_db_worker.progress.connect(self.update_progress_bar)
             self.load_db_worker.finished.connect(self.load_db_finished)
             self.load_db_worker.start()
+
+            # Display progress bar
+            self.row_count_bar_stack.setCurrentWidget(self.progress_bar)
+            self.row_count_label.hide()
+            self.progress_bar.show()
+            self.progress_bar.setValue(0)
 
     def update_row_count(self):
         self.row_count = self.middle_model.rowCount()
@@ -317,6 +349,11 @@ class IfcViewer(QMainWindow):
         self.middle_model.row_count_changed.connect(self.update_row_count)
         self.update_row_count()
         self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
+
+        # Hide progress bar
+        self.progress_bar.hide()
+        self.row_count_label.show()
+        self.row_count_bar_stack.setCurrentWidget(self.row_count_label)
    
     @Slot(int)
     def update_spinner(self):
@@ -332,6 +369,14 @@ class IfcViewer(QMainWindow):
         self.status_label.setText(new_text) # To prevent overriding the translated text
                                             # Only update the spinner
         self.current_frame += 1
+    
+    def update_progress_bar(self, percent):
+        self.progress_bar.setValue(percent)
+        if percent >= 99:
+            self.progress_bar.hide()
+            self.row_count_label.show()
+            self.row_count_bar_stack.setCurrentWidget(self.row_count_label)
+            self.row_count_label.setText(BUILDING_INDEX_KEY)
     
     @Slot(object)
     def ifc_file_loaded(self, result):
@@ -406,6 +451,7 @@ class IfcViewer(QMainWindow):
             self.load_ifc(path)
 
     def open_new_window(self):
+        # TODO: New windows use the same database causing conflicts
         self.new_window = IfcViewer()
         self.new_window.show() 
 
@@ -555,7 +601,7 @@ class IfcViewer(QMainWindow):
                     item.appendRow(child_item)
 
 # ==============================
-# Assembly exporting functions
+# Assembly exporter
 # ==============================
 
     def show_assemblies_window(self):

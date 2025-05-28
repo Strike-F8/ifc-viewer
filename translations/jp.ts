@@ -135,9 +135,20 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
 <context>
     <name>Row Count</name>
     <message>
-        <location filename="../strings.py" line="102"/>
+        <location filename="../strings.py" line="104"/>
         <source>{items} rows</source>
         <translation>{items}件</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="104"/>
+        <source>Building index for filtering. Please Wait...</source>
+        <translation>フィルタリング用のインデックスを作成しています。しばらくお待ちください…</translation>
+    </message>
+    <message>
+        <source>Building index for filtering
+Please Wait...</source>
+        <translation type="vanished">フィルタリング用のインデックスを作成しています
+しばらくお待ちください…</translation>
     </message>
 </context>
 <context>

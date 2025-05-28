@@ -61,8 +61,9 @@ class DBWorker(QThread):
 
             # populate the base table
             try:
-                def row_generator(): # Use a generator rather than a list for lower memory usage
-                    for entity in list(self.ifc_model):
+                def row_generator(entities, progress_callback, batch_size=10000): # Use a generator rather than a list for lower memory usage
+                    total_entities = len(entities) # Total number of inserts for calculating progress
+                    for i, entity in enumerate(entities):
                         info = entity.get_info()
                         yield [
                             entity.id(),                    # STEP ID
@@ -71,9 +72,13 @@ class DBWorker(QThread):
                             info.get("Name", ""),           # Name
                             self.generate_step_line(str(entity)) # If the step line contains a long list of references, truncate the list and keep everything else
                         ]
-
+                        if i % batch_size == 0 or i == total_entities: # Calculate current progress
+                            percent = int(i / total_entities * 100)
+                            progress_callback(percent)
+                            
+                all_entities = list(self.ifc_model)
                 # Execute all inserts in one batch
-                cursor.executemany(f"INSERT INTO base_entities ({COLUMNS_SQL}) VALUES (?, ?, ?, ?, ?)", row_generator())
+                cursor.executemany(f"INSERT INTO base_entities ({COLUMNS_SQL}) VALUES (?, ?, ?, ?, ?)", row_generator(all_entities, self.progress.emit))
 
                 # Create the virtual table for filtering
                 try:

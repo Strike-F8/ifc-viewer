@@ -97,6 +97,8 @@ def mark_main_status_label_keys():
 # ==============================
 
 ROW_COUNT_KEY = "{items} rows"
+BUILDING_INDEX_KEY = "Building index for filtering. Please Wait..."
 
 def mark_row_count_key():
     q.translate("Row Count", "{items} rows")
+    q.translate("Row Count", "Building index for filtering. Please Wait...")
