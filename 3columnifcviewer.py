@@ -348,13 +348,13 @@ class IfcViewer(QMainWindow):
         self.row_count = self.middle_model.rowCount()
         self.row_count_label.setText(ROW_COUNT_KEY, format_args={"items": self.row_count})
 
-    @Slot()
-    def load_db_finished(self):
+    @Slot(str)
+    def load_db_finished(self, db_uri):
         self.spinner_timer.stop()
         # f"Finished loading {os.path.basename(self.file_path)}"
         self.status_label.setText(MAIN_STATUS_LABEL_KEYS[3], format_args={"file_path": os.path.basename(self.file_path)})
 
-        self.middle_model = SqlEntityTableModel(self.ifc_model, self.file_path)
+        self.middle_model = SqlEntityTableModel(self.ifc_model, self.file_path, db_path=db_uri)
         self.middle_view.setModel(self.middle_model)
         self.middle_model.row_count_changed.connect(self.update_row_count)
         self.update_row_count()

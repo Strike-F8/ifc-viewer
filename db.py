@@ -1,4 +1,5 @@
 import apsw
+import uuid
 import functools
 import re
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QThread, Signal
@@ -26,14 +27,20 @@ STEP_LINE_IDX = 4
 # TODO: Show the database populating in realtime (WAL mode?)
 class DBWorker(QThread):
     progress = Signal(int)
-    finished = Signal()
+    finished = Signal(str)
 
     def __init__(self, ifc_model):
         super().__init__()
         self.ifc_model = ifc_model
+        self.db_uri = self.create_db_uri()
+    
+    def create_db_uri(self):
+        random_name = uuid.uuid4().hex
+        return f"file:{random_name}?mode=memory&cache=shared"
+
 
     def run(self):
-        conn = apsw.Connection(DB_URI)
+        conn = apsw.Connection(self.db_uri)
         cursor = conn.cursor()
         # DB optimizations for faster inserts
         # Perform these before apsw creates a transaction
@@ -44,7 +51,7 @@ class DBWorker(QThread):
         cursor.execute("PRAGMA cache_size = -1000000")
         cursor.close()
 
-        with apsw.Connection(DB_URI) as conn: # Create a connection solely for inserting the elements in this background thread
+        with apsw.Connection(self.db_uri) as conn: # Create a connection solely for inserting the elements in this background thread
             cursor = conn.cursor()
 
             try:
@@ -94,7 +101,7 @@ class DBWorker(QThread):
 
                 cursor.execute("INSERT INTO fts_entities(fts_entities) VALUES ('rebuild')")
                 
-                self.finished.emit()
+                self.finished.emit(self.db_uri) # Send the uri to the main program now that it is finished inserting
                 cursor.close()
 
             except Exception as e:
@@ -124,12 +131,13 @@ class DBWorker(QThread):
 class SqlEntityTableModel(QAbstractTableModel):
     row_count_changed = Signal(int)
 
-    def __init__(self, ifc_model, file_path):
+    def __init__(self, ifc_model, file_path, db_path):
         super().__init__()
         self.file_path = file_path # The file path of the ifc file
         self.ifc_model = ifc_model # The ifc_model loaded into memory
 
-        self.db = apsw.Connection(DB_URI)
+        self.db_uri = db_path
+        self.db = apsw.Connection(self.db_uri)
 
         # Default filter
         self._filter = ""
