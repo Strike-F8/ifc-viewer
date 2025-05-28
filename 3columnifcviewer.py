@@ -315,6 +315,7 @@ class IfcViewer(QMainWindow):
         self.middle_model = SqlEntityTableModel(self.ifc_model, self.file_path)
         self.middle_view.setModel(self.middle_model)
         self.middle_model.row_count_changed.connect(self.update_row_count)
+        self.update_row_count()
         self.middle_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
    
     @Slot(int)
