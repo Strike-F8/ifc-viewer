@@ -84,8 +84,11 @@ class DBWorker(QThread):
                             progress_callback(percent)
                             
                 all_entities = list(self.ifc_model)
+                # Change batch size according to model size
+                batch_size = int(len(all_entities) / 100)
+                print(f"batch size {batch_size} for db insert")
                 # Execute all inserts in one batch
-                cursor.executemany(f"INSERT INTO base_entities ({COLUMNS_SQL}) VALUES (?, ?, ?, ?, ?)", row_generator(all_entities, self.progress.emit))
+                cursor.executemany(f"INSERT INTO base_entities ({COLUMNS_SQL}) VALUES (?, ?, ?, ?, ?)", row_generator(all_entities, self.progress.emit, batch_size=batch_size))
 
                 # Create the virtual table for filtering
                 try:
@@ -106,7 +109,7 @@ class DBWorker(QThread):
 
             except Exception as e:
                 print(f"Failed to populate DB\n{e}")
-                self.finished.emit()
+                self.finished.emit(None)
                 cursor.close()
 
     # If the step line contains a long list of references, truncate it to lighten the load on the middle view
