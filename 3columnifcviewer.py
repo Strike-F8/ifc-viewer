@@ -1,30 +1,20 @@
 # Open a new window in a separate process from the file menu
 def open_new_window():
     if getattr(sys, 'frozen', False):
-        # Nuitka or PyInstaller binary
-        command = [sys.executable]
+        # We're in a compiled binary, use our own executable
+        target = os.path.join(os.path.dirname(sys.executable), "3columnifcviewer.exe")
+        args = [target]
+        os.spawnv(os.P_DETACH, target, args)
     else:
-        # Running as script
-        command = [sys.executable, os.path.abspath(__file__)]
-
-    if sys.platform == "win32":
-        subprocess.Popen(
-            command,
-            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-            close_fds=True
-        )
-    else:
-        subprocess.Popen(
-            command,
-            start_new_session=True,
-            close_fds=True
-        )
+        # We're running as a .py file, launch it with Python
+        target = os.path.abspath("3columnifcviewer.py")
+        args = [sys.executable, target]
+        os.spawnv(os.P_DETACH, sys.executable, args)
 
 import sys
 import os
 import json
 import ifcopenshell
-import subprocess
 
 from assembly_viewer import AssemblyViewerWindow
 from db import DBWorker, SqlEntityTableModel
@@ -668,4 +658,3 @@ if __name__ == "__main__":
     viewer.resize(1200, 600)
     viewer.show()
     sys.exit(app.exec())
-

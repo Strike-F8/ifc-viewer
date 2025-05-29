@@ -8,6 +8,10 @@ from functools import partial
 class LanguageManager(QObject):
     language_changed = Signal(str)
 
+    def __init__(self):
+        super().__init__() 
+        self.current_language = "en" # start with en as default
+
 language_manager = LanguageManager() # The global language manager
                                      # Must be imported by other files to be used
 
