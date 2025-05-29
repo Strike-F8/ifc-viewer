@@ -11,6 +11,9 @@ from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QSettings
 import networkx as nx
 from ifc_graph_viewer import IFCGraphViewer
 
+from ui import TLabel
+from strings import A_STATUS_LABEL_KEY
+
 def is_iterable(obj):
     return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
 
@@ -62,14 +65,14 @@ class AssemblyViewerWindow(QMainWindow):
         # Initialize app settings
         self.init_settings()
 
-
         self.resize(600, 400)
 
         self.ifc_model = ifc_model
         central_widget = QWidget()
         layout = QVBoxLayout(central_widget)
 
-        self.status_label = QLabel("Select the assemblies to be exported")
+        # "Select the assemblies to be exported"
+        self.status_label = TLabel(A_STATUS_LABEL_KEY, context="Assembly Status Label")
         self.status_label.setWordWrap(True)
 
         self.add_assembly_export_button()
@@ -116,7 +119,7 @@ class AssemblyViewerWindow(QMainWindow):
 
         file_layout = QHBoxLayout()
 
-        self.file_path_label = QLabel("Output Path:", self)
+        self.file_path_label = TLabel("Output Path:", self)
         self.file_path_combo = QComboBox(self)
         self.file_path_combo.setEditable(True)
         self.file_path_combo.addItems(self.recent_paths)

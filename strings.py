@@ -102,3 +102,15 @@ BUILDING_INDEX_KEY = "Building index for filtering. Please Wait..."
 def mark_row_count_key():
     q.translate("Row Count", "{items} rows")
     q.translate("Row Count", "Building index for filtering. Please Wait...")
+
+# ======================================
+# ASSEMBLY EXPORTER
+# ======================================
+# ==============================
+# STATUS LABEL
+# ==============================
+
+A_STATUS_LABEL_KEY = "Select the assemblies to be exported"
+
+def mark_a_status_label_key():
+    q.translate("Assembly Status Label", "Select the assemblies to be exported")

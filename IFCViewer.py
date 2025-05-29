@@ -2,12 +2,12 @@
 def open_new_window():
     if getattr(sys, 'frozen', False):
         # We're in a compiled binary, use our own executable
-        target = os.path.join(os.path.dirname(sys.executable), "3columnifcviewer.exe")
+        target = os.path.join(os.path.dirname(sys.executable), "IFCViewer.exe")
         args = [target]
         os.spawnv(os.P_DETACH, target, args)
     else:
         # We're running as a .py file, launch it with Python
-        target = os.path.abspath("3columnifcviewer.py")
+        target = os.path.abspath("IFCViewer.py")
         args = [sys.executable, target]
         os.spawnv(os.P_DETACH, sys.executable, args)
 

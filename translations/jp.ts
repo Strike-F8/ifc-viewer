@@ -2,6 +2,14 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ja_JP">
 <context>
+    <name>Assembly Status Label</name>
+    <message>
+        <location filename="../strings.py" line="116"/>
+        <source>Select the assemblies to be exported</source>
+        <translation>出力するアッセンブリを選択してください</translation>
+    </message>
+</context>
+<context>
     <name>Entity Views Context Menu</name>
     <message>
         <location filename="../strings.py" line="50"/>
@@ -140,7 +148,7 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
         <translation>{items}項目</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="104"/>
+        <location filename="../strings.py" line="113"/>
         <source>Building index for filtering. Please Wait...</source>
         <translation>フィルタリング用のインデックスを作成しています。しばらくお待ちください…</translation>
     </message>
