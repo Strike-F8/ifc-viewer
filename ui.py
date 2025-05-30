@@ -24,9 +24,8 @@ class TranslatableMixin:
         self._context = context or self.__class__.__name__
 
         # Only connect if translation is actually needed
-        if self._text_key or self._tooltip_key:
-            language_manager.language_changed.connect(self.translate)
-            self.translate()
+        language_manager.language_changed.connect(self.translate)
+        self.translate()
 
     @Slot()
     def translate(self):
@@ -158,8 +157,8 @@ class TLabel(QLabel):
         self.translate()
 
 class TPushButton(QPushButton, TranslatableMixin):
-    def __init__(self, *args, text_key=None, tooltip=None, format_args=None,
-                 context=None, clicked=None, clicked_args=None, **kwargs):
+    def __init__(self, text_key=None, tooltip=None, format_args=None,
+                 context=None, clicked=None, clicked_args=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.init_translation(text_key, tooltip, format_args, context)
 
@@ -172,9 +171,9 @@ class TPushButton(QPushButton, TranslatableMixin):
                 self.clicked.connect(clicked)
 
 class TCheckBox(QCheckBox, TranslatableMixin):
-    def __init__(self, *args, text_key=None, tooltip=None, format_args=None,
+    def __init__(self, text_key=None, tooltip=None, format_args=None,
                  context=None, toggled=None, toggled_args=None,
-                 stateChanged=None, state_args=None, **kwargs):
+                 stateChanged=None, state_args=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.init_translation(text_key, tooltip, format_args, context)
 
