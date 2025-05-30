@@ -3,7 +3,7 @@ from collections.abc import Iterable
 import ifcopenshell
 
 from PySide6.QtWidgets import (
-    QTableView, QLabel, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout, QCheckBox,
+    QTableView, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout, QCheckBox,
     QAbstractItemView, QPushButton, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy
 )
 from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QSettings

@@ -79,12 +79,13 @@ class TAction(QAction):
 
         if self._tooltip_key:
             tooltip_translated = tr(self._context, self._tooltip_key)
-            try:
-                tooltip_translated = tooltip_translated.format(*self._format_args) \
-                    if isinstance(self._format_args, tuple) else \
-                    tooltip_translated.format(**self._format_args)
-            except Exception as e:
-                print(f"[{self._context} tooltip format error]: {e}")
+            if self._format_args:
+                try:
+                    tooltip_translated = tooltip_translated.format(*self._format_args) \
+                        if isinstance(self._format_args, tuple) else \
+                        tooltip_translated.format(**self._format_args)
+                except Exception as e:
+                    print(f"[{self._context} tooltip format error]: {e}")
             self.setToolTip(tooltip_translated)
 
 class TLabel(QLabel):
