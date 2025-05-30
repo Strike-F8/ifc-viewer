@@ -4,7 +4,7 @@
 <context>
     <name>Assembly Status Label</name>
     <message>
-        <location filename="../strings.py" line="116"/>
+        <location filename="../strings.py" line="122"/>
         <source>Select the assemblies to be exported</source>
         <translation>出力するアッセンブリを選択してください</translation>
     </message>
@@ -30,6 +30,19 @@
         <location filename="../strings.py" line="58"/>
         <source>Copy This Row</source>
         <translation>この行のコピー</translation>
+    </message>
+</context>
+<context>
+    <name>Exporter Checkboxes</name>
+    <message>
+        <location filename="../strings.py" line="140"/>
+        <source>Draw Graph</source>
+        <translation>グラフを描く</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="141"/>
+        <source>Export Grids</source>
+        <translation>グリッドを出力</translation>
     </message>
 </context>
 <context>
@@ -138,6 +151,19 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
     <message>
         <source>Open File</source>
         <translation type="vanished">ファイルを開く</translation>
+    </message>
+</context>
+<context>
+    <name>Output Path Selector</name>
+    <message>
+        <location filename="../strings.py" line="127"/>
+        <source>Output Path:</source>
+        <translation>出力パス：</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="133"/>
+        <source>Browse...</source>
+        <translation>…</translation>
     </message>
 </context>
 <context>

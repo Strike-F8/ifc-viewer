@@ -114,3 +114,27 @@ A_STATUS_LABEL_KEY = "Select the assemblies to be exported"
 
 def mark_a_status_label_key():
     q.translate("Assembly Status Label", "Select the assemblies to be exported")
+
+# ==============================
+# OUTPUT PATH SELECTOR
+# ==============================
+
+A_OUTPUT_PATH_LABEL_KEY = "Output Path:"
+A_OUTPUT_BROWSE_KEY = "Browse..."
+
+def mark_output_path_keys():
+    q.translate("Output Path Selector", "Output Path:")
+    q.translate("Output Path Selector", "Browse...")
+
+# ==============================
+# EXPORTER CHECK BOXES
+# ==============================
+
+A_EXPORTER_CHECKBOX_KEYS = [
+    "Draw Graph",
+    "Export Grids"
+]
+
+def mark_checkbox_keys():
+    q.translate("Exporter Checkboxes", "Draw Graph")
+    q.translate("Exporter Checkboxes", "Export Grids")

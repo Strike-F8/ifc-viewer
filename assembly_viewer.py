@@ -3,7 +3,7 @@ from collections.abc import Iterable
 import ifcopenshell
 
 from PySide6.QtWidgets import (
-    QTableView, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout, QCheckBox,
+    QTableView, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout,
     QAbstractItemView, QPushButton, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy
 )
 from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QSettings
@@ -11,9 +11,10 @@ from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QSettings
 import networkx as nx
 from ifc_graph_viewer import IFCGraphViewer
 
-from ui import TLabel
-from strings import A_STATUS_LABEL_KEY
-
+from ui import TLabel, TPushButton, TCheckBox
+from strings import (
+    A_STATUS_LABEL_KEY, A_OUTPUT_PATH_LABEL_KEY, A_OUTPUT_BROWSE_KEY, A_EXPORTER_CHECKBOX_KEYS
+)
 def is_iterable(obj):
     return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
 
@@ -119,14 +120,15 @@ class AssemblyViewerWindow(QMainWindow):
 
         file_layout = QHBoxLayout()
 
-        self.file_path_label = TLabel("Output Path:", self)
+        # "Output Path:"
+        self.file_path_label = TLabel(A_OUTPUT_PATH_LABEL_KEY, self, context="Output Path Selector")
         self.file_path_combo = QComboBox(self)
         self.file_path_combo.setEditable(True)
         self.file_path_combo.addItems(self.recent_paths)
         self.file_path_combo.setCurrentText(self.recent_paths[0])
         self.file_path_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        self.browse_button = QPushButton("Browse...", self)
+        self.browse_button = TPushButton(A_OUTPUT_BROWSE_KEY, self, context="Output Path Selector")
         self.browse_button.clicked.connect(self.browse_output_path)
     
         file_layout.addWidget(self.file_path_label)
@@ -136,10 +138,12 @@ class AssemblyViewerWindow(QMainWindow):
         self.file_layout = file_layout
     
     def add_toggles(self):
-        self.graph_toggle_checkbox = QCheckBox("Draw Graph")        
+        # "Draw Graph"
+        self.graph_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[0], self, context="Exporter Checkboxes")
         self.graph_toggle_checkbox.setChecked(False)
 
-        self.grid_toggle_checkbox = QCheckBox("Export Grids")
+        # "Export Grids"
+        self.grid_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[1], self, context="Exporter Checkboxes")
         self.grid_toggle_checkbox.setChecked(False)
 
         self.toggle_layout = QHBoxLayout()
