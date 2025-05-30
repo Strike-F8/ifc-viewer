@@ -39,7 +39,7 @@ from strings import (
     BUILDING_INDEX_KEY
 )
 
-CONFIG_PATH = os.path.join(os.path.dirname(__file__),"config.json") # Save the recent files list
+from options import CONFIG_PATH
                                                 
 # TODO: Clearer labels for the main 3 views for ease of use
 # TODO: Multiple language support
@@ -77,7 +77,7 @@ class IfcViewer(QMainWindow):
         else:
             self.ifc_model = None
 
-        self.max_recent_files = 5
+        self.max_recent_files = 10
         self.recent_files = self.load_recent_files()
 
         self.middle_model = None # Set this up later when the ifc file is loaded
@@ -460,8 +460,13 @@ class IfcViewer(QMainWindow):
 
     def save_recent_files(self):
         try:
+            with open(CONFIG_PATH, "r") as f: # Read the data first so we can modify instead of overwriting
+                data = json.load(f)
+            
+            data["recent_files"] = self.recent_files
+
             with open(CONFIG_PATH, 'w') as f:
-                json.dump({"recent_files": self.recent_files}, f)
+                json.dump(data, f)
         except Exception as e:
             print("Error saving config:", e)
 

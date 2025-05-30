@@ -1,3 +1,5 @@
+import os
+import json
 from collections import defaultdict
 from collections.abc import Iterable
 import ifcopenshell
@@ -6,7 +8,7 @@ from PySide6.QtWidgets import (
     QTableView, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout,
     QAbstractItemView, QPushButton, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy
 )
-from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QSettings
+from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel
 
 import networkx as nx
 from ifc_graph_viewer import IFCGraphViewer
@@ -17,6 +19,8 @@ from strings import (
 )
 def is_iterable(obj):
     return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
+
+from options import CONFIG_PATH
 
 class AssemblyTableModel(QAbstractTableModel):
     def __init__(self, assemblies, parent=None):
@@ -63,8 +67,6 @@ class AssemblyTableModel(QAbstractTableModel):
 class AssemblyViewerWindow(QMainWindow):
     def __init__(self, ifc_model, title=None, parent=None):
         super().__init__(parent)
-        # Initialize app settings
-        self.init_settings()
 
         self.resize(600, 400)
 
@@ -107,16 +109,24 @@ class AssemblyViewerWindow(QMainWindow):
         # Create a directed graph to represent the forward and reverse references for the assemblies to be exported
         self.G = nx.DiGraph()
     
-    def init_settings(self):
-        self.settings = QSettings("Taiwa", "IFCAssemblyExporter")
-        self.recent_paths = self.settings.value("recent_paths", ["assemblies.ifc"])
+    def load_recent_paths(self):
+        if os.path.exists(CONFIG_PATH):
+            try:
+                with open(CONFIG_PATH, 'r') as f:
+                    data = json.load(f)
+                    return data.get("recent_exported_files", ["assemblies.ifc"])
+            except Exception:
+                return ["assemblies.ifc"]
+        else:
+            return ["assemblies.ifc"]
+        return ["assemblies.ifc"]
 
     def add_assembly_export_button(self):
         self.assembly_export_button = QPushButton("Export", self)
         self.assembly_export_button.clicked.connect(self.export_assemblies)
 
     def add_file_layout(self):
-        self.recent_paths = ["assemblies.ifc"]
+        self.recent_paths = self.load_recent_paths()
 
         file_layout = QHBoxLayout()
 
@@ -174,7 +184,20 @@ class AssemblyViewerWindow(QMainWindow):
         self.file_path_combo.setCurrentText(new_path)
 
         # Save the recent paths to a file
-        self.settings.setValue("recent_paths", self.recent_paths)
+        self.save_recent_paths()
+
+    def save_recent_paths(self):
+        try:
+            with open(CONFIG_PATH, 'r') as f:
+                data = json.load(f)
+
+            data["recent_exported_files"] = self.recent_paths
+
+            with open(CONFIG_PATH, 'w') as f:
+                json.dump(data, f)
+
+        except Exception as e:
+            print("Error saving config:", e)
 
     # Triggered by the export button
     def export_assemblies(self):
@@ -348,6 +371,9 @@ class AssemblyViewerWindow(QMainWindow):
         output_path = self.file_path_combo.currentText()
 
         print(f"Exporting {len(self.G)} entities to {output_path}")
+        # Add current file path to recent files
+        self.update_recent_paths(output_path)
+
         # Prepare the model for output
         # There are certain entities that are necessary for being read by other programs
         # IfcProject, IfcBuilding
