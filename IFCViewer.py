@@ -478,8 +478,6 @@ class IfcViewer(QMainWindow):
         if path:
             self.load_ifc(path)
 
-
-
     def handle_entity_selection(self, index):
         sender = self.sender()
 
@@ -507,7 +505,7 @@ class IfcViewer(QMainWindow):
         self.right_model.removeRows(0, self.right_model.rowCount())
 
         root_item = self.create_lazy_item(entity)
-        root_item.setFlags(root_item.flags() & ~Qt.ItemIsEditable)
+        root_item.setFlags(root_item.flags() & ~Qt.ItemIsEditable) # Disallow editing
         self.right_model.appendRow(root_item)
 
     def lazy_load_forward_references(self, index):
@@ -522,9 +520,6 @@ class IfcViewer(QMainWindow):
             if not entity:
                 return
 
-            visited = set()
-            visited.add(entity.id())
-
             children = []
             info = entity.get_info() # Get the labels and values of the entity's attributes
 
@@ -535,11 +530,10 @@ class IfcViewer(QMainWindow):
                     item.setText(root_label + f" | {str(attr_label)}: {str(attr)}")
 
                 if isinstance(attr, ifcopenshell.entity_instance):
-                    if attr.id() not in visited:
-                        children.append(attr)
+                    children.append(attr)
                 elif isinstance(attr, (list, tuple)):
                     for sub in attr:
-                        if isinstance(sub, ifcopenshell.entity_instance) and sub.id() not in visited:
+                        if isinstance(sub, ifcopenshell.entity_instance) and sub.id():
                             children.append(sub)
 
             if children:
@@ -613,17 +607,13 @@ class IfcViewer(QMainWindow):
             if not entity:
                 return
 
-            visited = set()
-            visited.add(entity.id())
-
             # Get and sort referencing entities by ID
             references = sorted(self.ifc_model.get_inverse(entity), key=lambda ref: ref.id())
 
             for ref in references:
-                if ref.id() not in visited:
-                    child_item = self.create_lazy_item(ref)
-                    child_item.setText(self.create_entity_label(child_item.data()))
-                    item.appendRow(child_item)
+                child_item = self.create_lazy_item(ref)
+                child_item.setText(self.create_entity_label(child_item.data()))
+                item.appendRow(child_item)
 
 # ==============================
 # Assembly exporter
