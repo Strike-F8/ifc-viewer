@@ -5,18 +5,18 @@ from collections.abc import Iterable
 import ifcopenshell
 
 from PySide6.QtWidgets import (
-    QTableView, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout,
-    QAbstractItemView, QPushButton, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy
+    QTableView, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout, QApplication,
+    QAbstractItemView, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy, QMenu
 )
 from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel
 
 import networkx as nx
 from ifc_graph_viewer import IFCGraphViewer
 
-from ui import TLabel, TPushButton, TCheckBox
+from ui import TLabel, TPushButton, TCheckBox, TAction
 from strings import (
     A_STATUS_LABEL_KEY, A_OUTPUT_PATH_LABEL_KEY, A_OUTPUT_BROWSE_KEY, A_EXPORTER_CHECKBOX_KEYS,
-    A_EXPORT_BUTTON_KEY
+    A_EXPORT_BUTTON_KEY, CONTEXT_MENU_ACTION_KEYS
 )
 def is_iterable(obj):
     return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
@@ -103,6 +103,8 @@ class AssemblyViewerWindow(QMainWindow):
         self.assembly_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.assembly_table.setSortingEnabled(True)
         self.assembly_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.assembly_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.assembly_table.customContextMenuRequested.connect(lambda pos, v=self.assembly_table: self.show_context_menu(pos, v))
 
         layout.addWidget(self.assembly_table)
         self.setCentralWidget(central_widget)
@@ -198,6 +200,72 @@ class AssemblyViewerWindow(QMainWindow):
 
         except Exception as e:
             print("Error saving config:", e)
+
+    def show_context_menu(self, position, view):
+        index = view.indexAt(position)
+        if not index.isValid():
+            print(f"Context menu requested at invalid index {index}")
+            return
+
+        step_id = index.sibling(index.row(), 0).data()  # column 0 = "STEP ID"
+        entity = self.ifc_model.by_id(int(step_id[1:])) # Get the entity selected by the user
+        print(f"Showing context menu for {entity}\nat index {index}")
+
+        if not entity:
+            print(f"Context menu requested for invalid entity at index {index}")
+        
+        menu = QMenu()
+
+        # A list of functions triggered by the buttons in the context menu
+        context_menu_actions = [
+            self.copy_step_line,
+            self.copy_step_id,
+            self.copy_guid,
+            self.copy_row_text
+        ]
+
+        translator_context = "Entity Views Context Menu"
+        for label, handler in zip(
+            CONTEXT_MENU_ACTION_KEYS,
+            context_menu_actions
+        ): # Not every entity has a GUID so skip
+            if "step" in label.lower(): # If the step id is needed, pass it in as an argument
+                action = TAction(label, self, context=translator_context, triggered=handler, triggered_args=entity, format_args={"id": entity.id()})
+            elif "GUID" in label: # If the GUID is needed, pass it in as an argument
+                try:
+                    action = TAction(label, self, context=translator_context, triggered=handler, triggered_args=entity, format_args={"guid": entity.GlobalId})
+                except: # Not every entity has a GUID so skip
+                    continue
+            else: # No arguments needed
+                action = TAction(label, self, context=translator_context, triggered=handler, triggered_args=(view, index.row()))
+
+            menu.addAction(action)
+
+        # Show the context menu
+        menu.exec(view.viewport().mapToGlobal(position))
+        
+    def copy_step_line(self, entity):
+        QApplication.clipboard().setText(str(entity))
+
+    def copy_step_id(self, entity):
+        QApplication.clipboard().setText('#' + str(entity.id()))
+
+    def copy_guid(self, entity):
+        QApplication.clipboard().setText(str(entity.GlobalId))
+
+    def copy_row_text(self, view, row):
+        model = view.model()
+        column_count = model.columnCount()
+        row_text = []
+
+        for col in range(column_count):
+            index = model.index(row, col)
+            text = model.data(index, Qt.DisplayRole)
+            if text:
+                row_text.append(str(text))
+
+        QApplication.clipboard().setText("\t".join(row_text))
+
 
     # Triggered by the export button
     def export_assemblies(self):

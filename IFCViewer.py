@@ -543,7 +543,6 @@ class IfcViewer(QMainWindow):
                     item.appendRow(child_item)
             else:
                 # No entity references — show named attributes
-                info = entity.get_info()
                 for key, value in info.items():
                     if key == "id" or key == "type":
                         continue
