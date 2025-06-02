@@ -15,7 +15,8 @@ from ifc_graph_viewer import IFCGraphViewer
 
 from ui import TLabel, TPushButton, TCheckBox
 from strings import (
-    A_STATUS_LABEL_KEY, A_OUTPUT_PATH_LABEL_KEY, A_OUTPUT_BROWSE_KEY, A_EXPORTER_CHECKBOX_KEYS
+    A_STATUS_LABEL_KEY, A_OUTPUT_PATH_LABEL_KEY, A_OUTPUT_BROWSE_KEY, A_EXPORTER_CHECKBOX_KEYS,
+    A_EXPORT_BUTTON_KEY
 )
 def is_iterable(obj):
     return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
@@ -117,12 +118,11 @@ class AssemblyViewerWindow(QMainWindow):
                     return data.get("recent_exported_files", ["assemblies.ifc"])
             except Exception:
                 return ["assemblies.ifc"]
-        else:
-            return ["assemblies.ifc"]
         return ["assemblies.ifc"]
 
     def add_assembly_export_button(self):
-        self.assembly_export_button = QPushButton("Export", self)
+        # "Export"
+        self.assembly_export_button = TPushButton(A_EXPORT_BUTTON_KEY, self, context="Output Path Selector")
         self.assembly_export_button.clicked.connect(self.export_assemblies)
 
     def add_file_layout(self):

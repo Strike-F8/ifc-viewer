@@ -4,7 +4,7 @@
 <context>
     <name>Assembly Status Label</name>
     <message>
-        <location filename="../strings.py" line="122"/>
+        <location filename="../strings.py" line="135"/>
         <source>Select the assemblies to be exported</source>
         <translation>出力するアッセンブリを選択してください</translation>
     </message>
@@ -35,14 +35,27 @@
 <context>
     <name>Exporter Checkboxes</name>
     <message>
-        <location filename="../strings.py" line="140"/>
+        <location filename="../strings.py" line="155"/>
         <source>Draw Graph</source>
         <translation>グラフを描く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="141"/>
+        <location filename="../strings.py" line="156"/>
         <source>Export Grids</source>
         <translation>グリッドを出力</translation>
+    </message>
+</context>
+<context>
+    <name>Filter Widget</name>
+    <message>
+        <location filename="../strings.py" line="106"/>
+        <source>Filter Entities...</source>
+        <translation>エンティティの絞り込み…</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="112"/>
+        <source>Filter</source>
+        <translation>絞り込む</translation>
     </message>
 </context>
 <context>
@@ -156,25 +169,30 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
 <context>
     <name>Output Path Selector</name>
     <message>
-        <location filename="../strings.py" line="127"/>
+        <location filename="../strings.py" line="141"/>
         <source>Output Path:</source>
         <translation>出力パス：</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="133"/>
+        <location filename="../strings.py" line="142"/>
         <source>Browse...</source>
         <translation>…</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="148"/>
+        <source>Export</source>
+        <translation>出力する</translation>
     </message>
 </context>
 <context>
     <name>Row Count</name>
     <message>
-        <location filename="../strings.py" line="104"/>
+        <location filename="../strings.py" line="117"/>
         <source>{items} rows</source>
         <translation>{items}項目</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="113"/>
+        <location filename="../strings.py" line="126"/>
         <source>Building index for filtering. Please Wait...</source>
         <translation>フィルタリング用のインデックスを作成しています。しばらくお待ちください…</translation>
     </message>

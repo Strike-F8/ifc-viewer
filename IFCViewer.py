@@ -17,32 +17,31 @@ import json
 import ifcopenshell
 
 from assembly_viewer import AssemblyViewerWindow
-from db import DBWorker, SqlEntityTableModel
-from options import OptionsDialog
+from db              import DBWorker, SqlEntityTableModel
+from options         import OptionsDialog
 
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget, QLabel,
+    QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget,
     QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView, QHeaderView,
     QProgressBar, QStackedLayout, QSizePolicy
 )
-from PySide6.QtGui import QAction, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator, QCoreApplication
+from PySide6.QtGui  import QAction, QStandardItemModel, QStandardItem, QFont
+from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator
 
 # Translation imports
 from ui import (language_manager,
-    TAction, TLabel
+    TAction, TLabel, TPushButton, TLineEdit
 )
 
 from strings import (
     MAIN_TOOLBAR_ACTION_KEYS, MAIN_TOOLBAR_TOOLTIP_KEYS, CONTEXT_MENU_ACTION_KEYS,
     FILE_MENU_ACTION_KEYS, FILE_MENU_KEY, RECENT_FILES_MENU_KEY, MAIN_STATUS_LABEL_KEYS, ROW_COUNT_KEY,
-    BUILDING_INDEX_KEY
+    BUILDING_INDEX_KEY, FILTER_WIDGET_KEYS
 )
 
 from options import CONFIG_PATH
                                                 
 # TODO: Clearer labels for the main 3 views for ease of use
-# TODO: Multiple language support
 
 # This simple worker takes in a line from the main thread and executes it in the background
 # It is used to execute ifcopenshell.open(file)
@@ -205,15 +204,14 @@ class IfcViewer(QMainWindow):
         self.update_recent_files_menu()
 
     def add_filter_bar(self):
-        self.filter_bar = QLineEdit(self)
-        self.filter_bar.setPlaceholderText("Filter Entities...") # TODO: Implement TLineEdit for translation
+        # "Filter Entities..."
+        self.filter_bar = TLineEdit(FILTER_WIDGET_KEYS[0], self, context="Filter Widget")
         self.filter_bar.textChanged.connect(self.apply_filter)
     
     def add_filter_button(self):
-        # TODO: Currently serves no real purpose as the filter is updated on text change
         # But maybe it should stay for user satisfaction
-        self.filter_button = QPushButton(self)
-        self.filter_button.setText("Filter")
+        # "Filter"
+        self.filter_button = TPushButton(FILTER_WIDGET_KEYS[1], self, context="Filter Widget")
         self.filter_button.clicked.connect(self.apply_filter)
 
     def apply_filter(self):

@@ -1,7 +1,7 @@
 from PySide6.QtCore import QObject, Signal, QCoreApplication, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QLabel, QPushButton, QCheckBox
+    QLabel, QPushButton, QCheckBox, QLineEdit
 )
 from functools import partial
 
@@ -192,3 +192,42 @@ class TCheckBox(QCheckBox, TranslatableMixin):
                 self.stateChanged.connect(partial(stateChanged, *state_args))
             else:
                 self.stateChanged.connect(stateChanged)
+
+from PySide6.QtWidgets import QLineEdit
+
+class TLineEdit(QLineEdit, TranslatableMixin):
+    def __init__(self, placeholder_key=None, tooltip=None, format_args=None,
+                 context=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._placeholder_key = placeholder_key
+        self.init_translation(text_key=None, tooltip_key=tooltip,
+                              format_args=format_args, context=context)
+
+        language_manager.language_changed.connect(self._translate_placeholder)
+
+    def translate(self):
+        # Include tooltip translation from mixin
+        super().translate()
+        # Also handle placeholder translation
+        self._translate_placeholder()
+
+    def _translate_placeholder(self):
+        if not self._placeholder_key:
+            return
+        tr = QCoreApplication.translate
+        try:
+            placeholder = tr(self._context, self._placeholder_key)
+            if self._format_args:
+                placeholder = placeholder.format(*self._format_args) \
+                    if isinstance(self._format_args, tuple) else \
+                    placeholder.format(**self._format_args)
+            self.setPlaceholderText(placeholder)
+        except Exception as e:
+            print(f"[{self._context} placeholder translation error]: {e}")
+
+    def setPlaceholderKey(self, placeholder_key, *, format_args=None):
+        """Update the translation key and retranslate."""
+        self._placeholder_key = placeholder_key
+        if format_args is not None:
+            self._format_args = format_args
+        self._translate_placeholder()

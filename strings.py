@@ -93,10 +93,23 @@ def mark_main_status_label_keys():
     q.translate("Main Status Label", "Selected entity #{id}")
 
 # ==============================
+# FILTER WIDGET
+# ==============================
+
+FILTER_WIDGET_KEYS = [
+    "Filter Entities...", # Filter input text box
+    "Filter"              # Filter apply button
+]
+
+def mark_filter_widget_keys():
+    q.translate("Filter Widget", "Filter Entities...")
+    q.translate("Filter Widget", "Filter")
+
+# ==============================
 # ROW COUNT
 # ==============================
 
-ROW_COUNT_KEY = "{items} rows"
+ROW_COUNT_KEY      = "{items} rows"
 BUILDING_INDEX_KEY = "Building index for filtering. Please Wait..."
 
 def mark_row_count_key():
@@ -120,11 +133,13 @@ def mark_a_status_label_key():
 # ==============================
 
 A_OUTPUT_PATH_LABEL_KEY = "Output Path:"
-A_OUTPUT_BROWSE_KEY = "Browse..."
+A_OUTPUT_BROWSE_KEY     = "Browse..."
+A_EXPORT_BUTTON_KEY     = "Export"
 
 def mark_output_path_keys():
     q.translate("Output Path Selector", "Output Path:")
     q.translate("Output Path Selector", "Browse...")
+    q.translate("Output Path Selector", "Export")
 
 # ==============================
 # EXPORTER CHECK BOXES
