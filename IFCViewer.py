@@ -22,10 +22,10 @@ from options         import OptionsDialog
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget,
-    QToolBar, QMessageBox, QFileDialog, QMenu, QLineEdit, QSplitter, QPushButton, QAbstractItemView, QHeaderView,
+    QToolBar, QMessageBox, QFileDialog, QMenu, QSplitter, QAbstractItemView, QHeaderView,
     QProgressBar, QStackedLayout, QSizePolicy
 )
-from PySide6.QtGui  import QAction, QStandardItemModel, QStandardItem, QFont
+from PySide6.QtGui  import QAction, QStandardItemModel, QStandardItem, QFont, QFontDatabase
 from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator
 
 # Translation imports
@@ -183,7 +183,7 @@ class IfcViewer(QMainWindow):
         # ＜ーChoose an IFC file to open
         self.status_label = TLabel(MAIN_STATUS_LABEL_KEYS[0], parent=self, context="Main Status Label")
         self.status_label.setMinimumHeight(20)
-        self.status_label.setMaximumHeight(35)
+        self.status_label.setMaximumHeight(40)
 
     def add_file_menu(self):
         self.menubar = self.menuBar()
@@ -645,7 +645,17 @@ class IfcViewer(QMainWindow):
 if __name__ == "__main__":
     file_path = sys.argv[1] if len(sys.argv) > 1 else None
     app = QApplication(sys.argv)
-    font = QFont("Consolas", 11)
+    font_id = QFontDatabase.addApplicationFont("fonts/Inter-VariableFont_opsz,wght.ttf")
+    if font_id == -1:
+        print("Failed to load variable font.")
+        font = QFont("Consolas", 11)
+    else:
+        family = QFontDatabase.applicationFontFamilies(font_id)[0]
+        print("Loaded font family:", family)
+
+        font = QFont(family)
+        font.setPointSize(12)
+
     app.setFont(font)
     viewer = IfcViewer(file_path)
     viewer.resize(1200, 600)
