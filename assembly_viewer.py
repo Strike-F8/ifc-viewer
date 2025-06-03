@@ -22,7 +22,9 @@ def is_iterable(obj):
     return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
 
 from options import CONFIG_PATH
-
+# TODO: Show a progress bar for export
+# TODO: Show an export completed message
+# TODO: IFC version selector
 class AssemblyTableModel(QAbstractTableModel):
     def __init__(self, assemblies, parent=None):
         super().__init__(parent)
@@ -266,174 +268,125 @@ class AssemblyViewerWindow(QMainWindow):
 
         QApplication.clipboard().setText("\t".join(row_text))
 
-
     # Triggered by the export button
     def export_assemblies(self):
-        # 1. Get the list of selected assemblies
-        selected_indexes = self.assembly_table.selectionModel().selectedRows()
-        selected_entities = []
-
-        # Use the indexes to get the actual entities that were selected
-        for index in selected_indexes:
-            entity = self.model.data(index, Qt.UserRole)
-            if entity:
-                selected_entities.append(entity)
+        # Get selected entities
+        selected_entities = [
+            self.model.data(index, Qt.UserRole)
+            for index in self.assembly_table.selectionModel().selectedRows()
+            if self.model.data(index, Qt.UserRole)
+        ]
 
         print("Exporting the following assemblies:")
         for entity in selected_entities:
-            print(entity)
-            
-        # Create the output model that will be used to export the assemblies
-        self.output_model = ifcopenshell.file(schema=self.ifc_model.schema) # Ideally, this program is schema agnostic
+            print(entity.id())
+        print(f"{len(selected_entities)} entities")
 
-        self.G.clear() # Reset the graph for the new export
-        assembly_objects = []
+        # TODO: Add an ifc version selector
+        self.output_model = ifcopenshell.file(schema=self.ifc_model.schema)
+        self.G.clear() # Reset the networkx graph before adding to it
+
+        # Add assemblies and their components
         for assembly in selected_entities:
-            # add the current assembly to the graph
-            self.G.add_node(assembly.id(), entity=assembly, color='red') # Color as red because it is one of the assemblies selected by the user
+            self.add_entity_to_graph(assembly, color='red')
+            components = self.find_assembly_objects(assembly)
+            selected_entities.extend(components)
 
-            # Get the IfcRelContainedInSpatialStructure for each assembly
-            self.find_ifc_rel_contained_in_spatial_structure(assembly, selected_entities)
+        # Find related entities for each object and assembly
+        for element in selected_entities:
+            self.find_ifc_rel_contained_in_spatial_structure(element, selected_entities)
+            self.find_ifc_rel_defines_by_properties(element, selected_entities)
+            self.find_material(element, selected_entities)
+            self.find_voids_elements(element)
 
-            # Get the IfcRelDefinesByProperties entities for each assembly
-            self.find_ifc_rel_defines_by_properties(assembly, selected_entities)
+            #for child in self.get_children(element):
+            #    self.add_entity_to_graph(child, source=element)
 
-            # Find the objects that make up the current assembly 
-            assembly_objects.extend(self.find_assembly_objects(assembly))
-
-        for object in assembly_objects:
-            # Get the materials for each object
-            self.find_material(object, assembly_objects)
-            # Get the voids\opening elements for each object
-            self.find_voids_elements(object)
-
-            # Get the children of each object (Geometry)
-            children = self.get_children(object)
-            for child in children:
-                self.G.add_node(child.id(), entity=child)
-                self.G.add_edge(object.id(), child.id())
-            
-            # Get the IfcRelDefinesByProperties of each object
-            self.find_ifc_rel_defines_by_properties(object, assembly_objects)
-
-        # 3. TODO: Save related entities with their original step ids (Does not seem to be possible with ifcopenshell)
-        # 4. Output to a new IFC file
         self.export_assemblies_to_file()
 
-        # Optionally, visualize graph using graphics view
+        # Optionally, display the selected assemblies in a graph
         if self.graph_toggle_checkbox.isChecked():
-            self.viewer = IFCGraphViewer(self.G, selected_entities)
-            # Add to a dockable widget
-            if self.title:
-                dock = QDockWidget(f"Graph of {self.title}", self)
-            else:
-                dock = QDockWidget("Graph view", self)
-                
-            dock.setWidget(self.viewer)
+            viewer = IFCGraphViewer(self.G, selected_entities)
+            dock = QDockWidget(f"Graph of {self.title}" if self.title else "Graph view", self)
+            dock.setWidget(viewer)
             self.addDockWidget(Qt.RightDockWidgetArea, dock)
 
-    def find_ifc_rel_aggregates(self, assembly):
-        ifc_rel_aggregates = None
-        
-        for entity in assembly.IsDecomposedBy:
-            if entity.is_a("IfcRelAggregates"):
-                ifc_rel_aggregates = entity
-                #print(f"Found {ifc_rel_aggregates}\nfor {assembly}")
-                break
+    # ----------------------
+    # Helper methods below
+    # ----------------------
 
-        if ifc_rel_aggregates:
-            self.G.add_node(ifc_rel_aggregates.id(), entity=ifc_rel_aggregates)
-            self.G.add_edge(assembly.id(), ifc_rel_aggregates.id())
-            return ifc_rel_aggregates
+    # Add a given entity to the networkx graph
+    # Call this method rather than inserting manually
+    def add_entity_to_graph(self, entity, source=None, color=None):
+        self.G.add_node(entity.id(), entity=entity, color=color or 'default')
+        if source:
+            self.G.add_edge(source.id(), entity.id())
 
-        return None
-    
+    # This method gets a relating entity that references the given entity.
+    # However, the relating entity also references many other entities
+    # so we remove the references we are not planning to export before adding
+    # it to the output model. Lastly, revert the change to the reference list
+    # to prevent corruption in the original model
+    def clone_relation_with_filtered_targets(self, relation, attr_name, allowed_targets):
+        original = getattr(relation, attr_name)
+        intersection = list(set(original).intersection(allowed_targets))
+        setattr(relation, attr_name, intersection)
+        self.output_model.add(relation)
+        setattr(relation, attr_name, original)
+
+    # Find all objects that make up a given assembly
     def find_assembly_objects(self, assembly):
-        # Find the IfcRelAggregates entity that references this assembly
-        ifc_rel_aggregates = self.find_ifc_rel_aggregates(assembly)
+        rel_agg = self.find_ifc_rel_aggregates(assembly)
+        if not rel_agg:
+            return []
 
-        related_objects = ifc_rel_aggregates.RelatedObjects
+        objects = rel_agg.RelatedObjects
+        for obj in objects:
+            self.add_entity_to_graph(obj, source=rel_agg)
+        return objects
 
-        for object in related_objects:
-            self.G.add_node(object.id(), entity=object)
-            self.G.add_edge(object.id(), ifc_rel_aggregates.id())
-        
-        return related_objects
+    # Find the IfcRelAggregates entity that references the given assembly
+    # This provides a list of all objects that make up the assembly
+    def find_ifc_rel_aggregates(self, assembly):
+        for relation in assembly.IsDecomposedBy:
+            if relation.is_a("IfcRelAggregates"):
+                self.add_entity_to_graph(relation, source=assembly)
+                return relation
+        return None
 
-    def find_voids_elements(self, object):
-        rel_voids_elements = object.HasOpenings
-        for rel_voids_element in rel_voids_elements:
-            # Add the IfcRelVoidsElement to the graph
-            self.G.add_node(rel_voids_element.id(), entity=rel_voids_element)
-            self.G.add_edge(object.id(), rel_voids_element.id())
-            voids_element = rel_voids_element.RelatedOpeningElement
-            self.G.add_node(voids_element.id(), entity=voids_element)
-            self.G.add_edge(rel_voids_element.id(), voids_element.id())
-    
-    # Find the referencing IfcRelContainedInSpatialStructure entities of the given entity
-    # These referencing entities reference many other objects that we may not want
-    # so the user can pass in a list of related objects to be included. All others are removed
-    def find_ifc_rel_contained_in_spatial_structure(self, entity, entities=None):
-        relations = entity.ContainedInStructure
-        #print(f"{entity} is contained in:")
-        for relation in relations:
-            #print(relation)
-            # Remove the references to entities we did not select
-            if entities:
-                related_elements = relation.RelatedElements
-                intersection = list(set(related_elements).intersection(entities))
-                #print(f"Only keeping these references:\n{intersection}")
-                relation.RelatedElements = intersection
-                self.output_model.add(relation)
-                relation.RelatedElements = related_elements # Revert the related elements in the original model to prevent corruption
-            self.G.add_node(relation.id(), entity=relation)
-            self.G.add_edge(entity.id(), relation.id())
+    # Find all voiding elements associated with the given object/element
+    def find_voids_elements(self, element):
+        for rel_void in element.HasOpenings:
+            self.add_entity_to_graph(rel_void, source=element)
+            void = rel_void.RelatedOpeningElement
+            self.add_entity_to_graph(void, source=rel_void)
 
-    # Find the referencing IfcRelDefinesByProperties entities of the given entity
-    # These referencing entities reference many other objects that we may not want
-    # so the user can pass in a list of related objects to be included. All others are removed
-    def find_ifc_rel_defines_by_properties(self, entity, entities=None):
-        relations = entity.IsDefinedBy
-        #print(f"{entity} is defined by:")
-        for relation in relations:
-            #print(relation)
-            # Remove the references to entities we are not exporting
-            if entities:
-                related_objects = relation.RelatedObjects
-                intersection = list(set(related_objects).intersection(entities))
-                #print(f"Only keeping these references:\n{intersection}")
-                relation.RelatedObjects = intersection
-                self.output_model.add(relation)
-                relation.RelatedObjects = related_objects # Revert the related objects in the original model to prevent corruption
-            self.G.add_node(relation.id(), entity=relation)
-            self.G.add_edge(entity.id(), relation.id())
-    
-    def find_material(self, object, objects=None):
-        # get the IfcRelAssociatesMaterial entity that references this object
-        ifc_rel_associates_material = None
-        for entity in object.HasAssociations:
-            if entity.is_a("IfcRelAssociatesMaterial"):
-                ifc_rel_associates_material = entity
-                #print(f"Found {ifc_rel_associates_material}\nfor {object}")
-                # Remove the references to objects we are not exporting
-                if objects:
-                    related_objects = entity.RelatedObjects
-                    intersection = list(set(related_objects).intersection(objects))
-                    entity.RelatedObjects = intersection
-                    #print(f"Only keeping these references:\n{intersection}")
-                    self.output_model.add(entity)
-                    entity.RelatedObjects = related_objects # Revert the change to prevent corruption in the original model
-                self.G.add_node(entity.id(), entity=entity)
-                self.G.add_edge(object.id(), entity.id())
-                break
+    # Every assembly is referenced by an IfcRelContainedInSpatialStructure entity
+    # which provides spatial data within the model for the assembly
+    # However, this referencing entity also references other assemblies
+    # so we make sure only to keep the references of assemblies we want to export
+    def find_ifc_rel_contained_in_spatial_structure(self, entity, allowed_entities):
+        for relation in entity.ContainedInStructure:
+            self.clone_relation_with_filtered_targets(relation, "RelatedElements", allowed_entities)
+            self.add_entity_to_graph(relation, source=entity)
 
-        if ifc_rel_associates_material:
-            material = ifc_rel_associates_material.RelatingMaterial
-            self.G.add_node(material.id(), entity=material)
-            self.G.add_edge(ifc_rel_associates_material.id(), material.id())
-            return material
+    # 
+    def find_ifc_rel_defines_by_properties(self, entity, allowed_entities):
+        for relation in entity.IsDefinedBy:
+            self.clone_relation_with_filtered_targets(relation, "RelatedObjects", allowed_entities)
+            self.add_entity_to_graph(relation, source=entity)
 
-        return "NO MATERIAL"
+    def find_material(self, element, allowed_elements):
+        for assoc in element.HasAssociations:
+            if assoc.is_a("IfcRelAssociatesMaterial"):
+                self.clone_relation_with_filtered_targets(assoc, "RelatedObjects", allowed_elements)
+                self.add_entity_to_graph(assoc, source=element)
+
+                material = assoc.RelatingMaterial
+                if material:
+                    self.add_entity_to_graph(material, source=assoc)
+                return material
+        return None
 
     def export_assemblies_to_file(self):
         output_path = self.file_path_combo.currentText()
@@ -482,6 +435,8 @@ class AssemblyViewerWindow(QMainWindow):
         
         self.output_model.write(output_path)
             
+    # Get the entities referenced by the given entity
+    # Return the children as a list
     def get_children(self, entity):
         children = []
         for attr in entity.get_info().keys():
@@ -497,7 +452,9 @@ class AssemblyViewerWindow(QMainWindow):
                 children.extend([v for v in value if isinstance(v, ifcopenshell.entity_instance)])
         return children
     
-    
+    # Find all assemblies in the ifc file
+    # Return the assemblies as a dictionary
+    # Key: Assembly mark, Value: Entity object
     def find_assemblies(self):
         # Each IfcElementAssembly represents one assembly
         # So does each IfcRelAggregates
