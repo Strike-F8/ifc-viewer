@@ -14,11 +14,11 @@ DB_URI = "file:memdb1?mode=memory&cache=shared" # In memory database to be share
 COLUMNS = ["STEP ID", "Ifc Type", "GUID", "Name", "STEP Line"]
 COLUMNS_SQL = ", ".join(f'"{col}"' for col in COLUMNS) # Define the columns here and use this variable throughout the program
 
-STEP_ID_IDX = 0
-IFC_TYPE_IDX = 1
-GUID_IDX = 2
-NAME_IDX = 3
-STEP_LINE_IDX = 4
+STEP_ID_INDEX = 0
+IFC_TYPE_INDEX = 1
+GUID_INDEX = 2
+NAME_INDEX = 3
+STEP_LINE_INDEX = 4
 
 # The DBWorker class populates the database used to display entities in the middle view.
 # SQLite is not thread safe but using the shared in memory database as defined in DB_URI,
@@ -212,8 +212,8 @@ class SqlEntityTableModel(QAbstractTableModel):
 
         col = index.column()
 
-        if col == STEP_ID_IDX:
-            return f"#{row[STEP_ID_IDX]}"
+        if col == STEP_ID_INDEX:
+            return f"#{row[STEP_ID_INDEX]}"
 
         return row[col]
 

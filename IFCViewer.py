@@ -500,6 +500,7 @@ class IfcViewer(QMainWindow):
         self.status_label.setText(MAIN_STATUS_LABEL_KEYS[5], format_args={"id": str(entity.id())})
 
     def populate_right_view(self, entity):
+        #TODO: Improve performance for huge lists
         self.right_model.removeRows(0, self.right_model.rowCount())
 
         root_item = self.create_lazy_item(entity)
@@ -582,19 +583,21 @@ class IfcViewer(QMainWindow):
     def create_lazy_item(self, ent):
         item = QStandardItem(f"#{ent.id()} - {ent.is_a()} | Name: {ent.get_info().get('Name', 'N/A')}")
         item.setData(ent)
-        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable) # Set as non-editable
 
         # Add placeholder child so it's expandable
         item.appendRow(QStandardItem("Loading..."))
         return item
     
     def lazy_load_inverse_references(self, index):
+        # Get the item the user is expanding
         item = self.left_model.itemFromIndex(index)
-        # Display the root entity's attributes on the root
-        item.setText(self.create_entity_label(item.data()))
 
         if not item:
             return
+
+        # Display the selected entity's attributes on its line
+        item.setText(self.create_entity_label(item.data()))
 
         # Check if already loaded
         if item.hasChildren() and item.child(0).text() == "Loading...":
