@@ -16,7 +16,7 @@ import os
 import json
 import ifcopenshell
 
-from assembly_viewer import AssemblyViewerWindow
+from exporter.assembly_viewer import AssemblyViewerWindow
 from db              import DBWorker, SqlEntityTableModel
 from options         import OptionsDialog
 
@@ -321,16 +321,16 @@ class IfcViewer(QMainWindow):
         self.start_load_ifc_task(file_path)
    
     def start_load_ifc_task(self, file_path):
+        if os.path.exists(file_path):
+            self.load_ifc_worker = SimpleIFCWorker(task_fn=lambda: ifcopenshell.open(file_path))
+        else:
+            QMessageBox.critical(self, "Error", f"{file_path}\nnot found!")
+            return
+            
         # f"Now loading: {os.path.basename(file_path)}"
         self.status_label.setText(MAIN_STATUS_LABEL_KEYS[1], format_args={"file_path": os.path.basename(file_path)})
         self.spinner_timer.start()
 
-        # TODO: FileNotFoundError is not being caught
-        try:
-            self.load_ifc_worker = SimpleIFCWorker(task_fn=lambda: ifcopenshell.open(file_path))
-        except FileNotFoundError as e:
-            QMessageBox.critical(self, "Error", f"File not found\n{str(e)}")
-            
         self.load_ifc_worker.progress.connect(self.update_spinner)
         self.load_ifc_worker.finished.connect(self.ifc_file_loaded)
         self.load_ifc_worker.start()

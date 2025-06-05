@@ -1,5 +1,5 @@
 import ifcopenshell
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import QThread, Signal
 from _collections_abc import Iterable
 
 class PreserveIDExportWorker(QThread):

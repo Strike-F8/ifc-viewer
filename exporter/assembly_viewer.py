@@ -2,16 +2,12 @@ import os
 import json
 from collections import defaultdict
 from collections.abc import Iterable
-import ifcopenshell
 
 from PySide6.QtWidgets import (
-    QTableView, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout, QApplication,
+    QTableView, QHeaderView, QMainWindow, QWidget, QVBoxLayout, QApplication,
     QAbstractItemView, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy, QMenu
 )
-from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QThread, Signal, Slot, QTimer
-
-import networkx as nx
-from ifc_graph_viewer import IFCGraphViewer
+from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, Slot, QTimer
 
 from ui import TLabel, TPushButton, TCheckBox, TAction
 from strings import (
@@ -19,8 +15,8 @@ from strings import (
     A_EXPORT_BUTTON_KEY, CONTEXT_MENU_ACTION_KEYS, A_EXPORTING_KEYS
 )
 
-from preserve_ids import PreserveIDExportWorker
-from new_ids import NewIDExportWorker
+from .preserve_ids import PreserveIDExportWorker
+from .new_ids import NewIDExportWorker
 
 def is_iterable(obj):
     return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
