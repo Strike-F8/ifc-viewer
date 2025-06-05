@@ -208,5 +208,7 @@ class NewIDExportWorker(QThread):
         return children
 
     def add_to_output_model(self, entity):
+        # TODO: copy the entity in a way that is version agnostic
+        # Right now, the output model must be the same version as the original
         self.output_model.add(entity)
         

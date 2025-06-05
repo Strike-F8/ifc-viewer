@@ -148,7 +148,7 @@ def mark_output_path_keys():
     q.translate("Output Path Selector", "Export")
 
 # ==============================
-# EXPORTER CHECK BOXES
+# EXPORTER SETTINGS
 # ==============================
 
 A_EXPORTER_CHECKBOX_KEYS = [
@@ -158,8 +158,11 @@ A_EXPORTER_CHECKBOX_KEYS = [
     "Open Exported File"
 ]
 
-def mark_checkbox_keys():
-    q.translate("Exporter Checkboxes", "Draw Graph")
-    q.translate("Exporter Checkboxes", "Export Grids")
-    q.translate("Exporter Checkboxes", "Preserve original STEP IDs (BUGGY!)")
-    q.translate("Exporter Checkboxes", "Open Exported File")
+A_EXPORTER_VERSION_LABEL_KEY = "IFC Version: "
+
+def mark_exporter_settings_keys():
+    q.translate("Exporter Settings", "Draw Graph")
+    q.translate("Exporter Settings", "Export Grids")
+    q.translate("Exporter Settings", "Preserve original STEP IDs (BUGGY!)")
+    q.translate("Exporter Settings", "Open Exported File")
+    q.translate("Exporter Settings", "IFC Version: ")

@@ -45,24 +45,48 @@
 <context>
     <name>Exporter Checkboxes</name>
     <message>
-        <location filename="../strings.py" line="163"/>
+        <source>Draw Graph</source>
+        <translation type="vanished">グラフを描く</translation>
+    </message>
+    <message>
+        <source>Export Grids</source>
+        <translation type="vanished">グリッドを出力</translation>
+    </message>
+    <message>
+        <source>Preserve original STEP IDs (BUGGY!)</source>
+        <translation type="vanished">元のファイルのSTEP IDを保存する（この機能は未完成！）</translation>
+    </message>
+    <message>
+        <source>Open Exported File</source>
+        <translation type="vanished">出力したファイルを開く</translation>
+    </message>
+</context>
+<context>
+    <name>Exporter Settings</name>
+    <message>
+        <location filename="../strings.py" line="165"/>
         <source>Draw Graph</source>
         <translation>グラフを描く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="164"/>
+        <location filename="../strings.py" line="166"/>
         <source>Export Grids</source>
         <translation>グリッドを出力</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="165"/>
+        <location filename="../strings.py" line="167"/>
         <source>Preserve original STEP IDs (BUGGY!)</source>
         <translation>元のファイルのSTEP IDを保存する（この機能は未完成！）</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="166"/>
+        <location filename="../strings.py" line="168"/>
         <source>Open Exported File</source>
         <translation>出力したファイルを開く</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="168"/>
+        <source>IFC Version: </source>
+        <translation>IFCバージョン： </translation>
     </message>
 </context>
 <context>

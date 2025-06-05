@@ -1,10 +1,12 @@
 import os
 import json
+import ifcopenshell
+
 from collections import defaultdict
 from collections.abc import Iterable
 
 from PySide6.QtWidgets import (
-    QTableView, QHeaderView, QMainWindow, QWidget, QVBoxLayout, QApplication,
+    QTableView, QHeaderView, QMainWindow, QWidget, QVBoxLayout, QApplication, QMessageBox,
     QAbstractItemView, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy, QMenu
 )
 from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, Slot, QTimer
@@ -12,7 +14,7 @@ from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, Slot, QTimer
 from ui import TLabel, TPushButton, TCheckBox, TAction
 from strings import (
     A_STATUS_LABEL_KEY, A_OUTPUT_PATH_LABEL_KEY, A_OUTPUT_BROWSE_KEY, A_EXPORTER_CHECKBOX_KEYS,
-    A_EXPORT_BUTTON_KEY, CONTEXT_MENU_ACTION_KEYS, A_EXPORTING_KEYS
+    A_EXPORT_BUTTON_KEY, CONTEXT_MENU_ACTION_KEYS, A_EXPORTING_KEYS, A_EXPORTER_VERSION_LABEL_KEY
 )
 
 from .preserve_ids import PreserveIDExportWorker
@@ -25,7 +27,6 @@ def is_iterable(obj):
 from options import CONFIG_PATH
 # TODO: Show a progress bar for export
 # TODO: IFC version selector
-# TODO: Open exported ifc in a new ifc viewer window
 
 class AssemblyTableModel(QAbstractTableModel):
     def __init__(self, assemblies, parent=None):
@@ -72,7 +73,7 @@ class AssemblyViewerWindow(QMainWindow):
     def __init__(self, ifc_model, title=None, parent=None):
         super().__init__(parent)
 
-        self.resize(600, 400)
+        self.resize(600, 600)
 
         self.ifc_model = ifc_model
         central_widget = QWidget()
@@ -83,11 +84,11 @@ class AssemblyViewerWindow(QMainWindow):
         self.status_label.setWordWrap(True)
 
         self.add_assembly_export_button()
-        self.add_toggles()
         self.add_file_layout()
 
         layout.addLayout(self.file_layout)
-        layout.addLayout(self.toggle_layout)
+        self.add_settings()
+        layout.addLayout(self.settings_layout)
         layout.addWidget(self.status_label)
         layout.addWidget(self.assembly_export_button)
 
@@ -158,21 +159,26 @@ class AssemblyViewerWindow(QMainWindow):
 
         self.file_layout = file_layout
     
+    def add_settings(self):
+        self.settings_layout = QVBoxLayout()
+        self.add_toggles()
+        self.add_version_selector()
+
     def add_toggles(self):
         # "Draw Graph"TODO: Improve graph support before enabling again
-       # self.graph_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[0], self, context="Exporter Checkboxes")
-       # self.graph_toggle_checkbox.setChecked(False)
+        # self.graph_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[0], self, context="Exporter Settings")
+        # self.graph_toggle_checkbox.setChecked(False)
 
         # "Export Grids"
-        self.grid_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[1], self, context="Exporter Checkboxes")
+        self.grid_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[1], self, context="Exporter Settings")
         self.grid_toggle_checkbox.setChecked(False)
 
         # "Preserve original STEP IDs (BUGGY!)"
-        self.preserve_id_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[2], self, context="Exporter Checkboxes")
+        self.preserve_id_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[2], self, context="Exporter Settings")
         self.preserve_id_toggle_checkbox.setChecked(False)
 
         # Open Exported File
-        self.open_file_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[3], self, context="Exporter Checkboxes")
+        self.open_file_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[3], self, context="Exporter Settings")
         self.open_file_toggle_checkbox.setChecked(False)
         self.open_file_toggle_checkbox.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
@@ -181,6 +187,26 @@ class AssemblyViewerWindow(QMainWindow):
         self.toggle_layout.addWidget(self.grid_toggle_checkbox) 
         self.toggle_layout.addWidget(self.preserve_id_toggle_checkbox)
         self.toggle_layout.addWidget(self.open_file_toggle_checkbox)
+
+        self.settings_layout.addLayout(self.toggle_layout)
+
+    def add_version_selector(self):
+        # "IFC Version: "
+        version_label = TLabel(A_EXPORTER_VERSION_LABEL_KEY, self, context="Exporter Settings")
+        self.version_combo = QComboBox()
+
+        version_layout = QHBoxLayout()
+        version_layout.addWidget(version_label)
+        version_layout.addWidget(self.version_combo)
+
+        self.supported_schemas = [
+            "IFC2X3", "IFC4", "IFC4X3",
+        ]
+
+        self.version_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.version_combo.addItems(self.supported_schemas)
+        self.version_combo.setCurrentText(self.ifc_model.schema)
+        self.settings_layout.addLayout(version_layout)
 
     def browse_export_path(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -338,17 +364,53 @@ class AssemblyViewerWindow(QMainWindow):
     def export_finished(self, results):
         # Optionally, display the selected assemblies in a graph
         # self.draw_graph() 
-        self.spinner_timer.stop()
+
+        export_path = results[0]
 
         # "Exported {entity_count} {entity_type}(s) to {file_path}"
         self.status_label.setText(A_EXPORTING_KEYS[1],
                     format_args={"entity_count": str(len(self.entities_to_export)),
                                 "entity_type": "Assembly",
-                                "file_path": results[0]})
+                                "file_path": export_path})
 
-        if self.open_file_toggle_checkbox.isChecked():
-            open_new_ifc_viewer(results[0]) 
-   
+        # Convert results if necessary
+        new_version = self.version_combo.currentText()
+        if new_version != self.ifc_model.schema:
+            new_path = os.path.splitext(export_path)[0]+"(CONVERTED).ifc"
+            conversion_failed = self.convert_schema_to(export_path,
+                                new_path, new_version)
+            if conversion_failed:
+                QMessageBox.critical(self, "Error", f"Conversion Failed")
+
+            if self.open_file_toggle_checkbox.isChecked():
+                open_new_ifc_viewer(new_path)
+        else:
+            open_new_ifc_viewer(export_path)
+
+        self.spinner_timer.stop()
+    
+    # Convert one model to another schema
+    def convert_schema_to(self, input_file, output_file, new_schema):
+        #TODO: Create a help dialog with info about conversion
+        old_model = ifcopenshell.open(input_file)
+        new_model = ifcopenshell.file(schema=new_schema)
+
+        for entity in old_model:
+            self.add_to_output_model(entity, new_model)
+        
+        print(f"Writing new file to {output_file}")
+        new_model.write(output_file)
+
+    # Instead of copying entities to the new model, create new entities with the same attributes
+    # Useful for changing IFC versions
+    def add_to_output_model(self, entity, new_model):
+        attributes = entity.get_info()
+        try:
+            return new_model.create_entity(**attributes)
+        except Exception as e:
+            print(e)
+            return -1
+
 #    def draw_graph(self):
 #        if self.graph_toggle_checkbox.isChecked():
 #            viewer = IFCGraphViewer(self.G, self.entities_to_export)

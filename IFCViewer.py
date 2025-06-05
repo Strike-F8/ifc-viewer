@@ -26,7 +26,7 @@ from strings import (
     BUILDING_INDEX_KEY, FILTER_WIDGET_KEYS
 )
 
-from options import CONFIG_PATH
+from options        import CONFIG_PATH
 from exporter.utils import open_new_ifc_viewer
                                                 
 # TODO: Clearer labels for the main 3 views for ease of use
