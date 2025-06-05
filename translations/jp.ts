@@ -4,9 +4,19 @@
 <context>
     <name>Assembly Status Label</name>
     <message>
-        <location filename="../strings.py" line="135"/>
+        <location filename="../strings.py" line="134"/>
         <source>Select the assemblies to be exported</source>
         <translation>出力するアッセンブリを選択してください</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="135"/>
+        <source>Exporting {entity_count} {entity_type}(s) to {file_path}</source>
+        <translation>{entity_type}を{entity_count}項目{file_path}に出力中</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="141"/>
+        <source>Exported {entity_count} {entity_type}(s) to {file_path}</source>
+        <translation>{entity_type}を{entity_count}項目{file_path}に出力しました</translation>
     </message>
 </context>
 <context>
@@ -35,14 +45,19 @@
 <context>
     <name>Exporter Checkboxes</name>
     <message>
-        <location filename="../strings.py" line="155"/>
+        <location filename="../strings.py" line="162"/>
         <source>Draw Graph</source>
         <translation>グラフを描く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="156"/>
+        <location filename="../strings.py" line="163"/>
         <source>Export Grids</source>
         <translation>グリッドを出力</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="164"/>
+        <source>Preserve original STEP IDs (BUGGY!)</source>
+        <translation>元のファイルのSTEP IDを保存する（この機能は未完成！）</translation>
     </message>
 </context>
 <context>
@@ -169,17 +184,17 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
 <context>
     <name>Output Path Selector</name>
     <message>
-        <location filename="../strings.py" line="141"/>
+        <location filename="../strings.py" line="147"/>
         <source>Output Path:</source>
         <translation>出力パス：</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="142"/>
+        <location filename="../strings.py" line="148"/>
         <source>Browse...</source>
         <translation>…</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="148"/>
+        <location filename="../strings.py" line="154"/>
         <source>Export</source>
         <translation>出力する</translation>
     </message>

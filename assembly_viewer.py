@@ -162,9 +162,9 @@ class AssemblyViewerWindow(QMainWindow):
         self.file_layout = file_layout
     
     def add_toggles(self):
-        # "Draw Graph"
-        self.graph_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[0], self, context="Exporter Checkboxes")
-        self.graph_toggle_checkbox.setChecked(False)
+        # "Draw Graph"TODO: Improve graph support before enabling again
+       # self.graph_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[0], self, context="Exporter Checkboxes")
+       # self.graph_toggle_checkbox.setChecked(False)
 
         # "Export Grids"
         self.grid_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[1], self, context="Exporter Checkboxes")
@@ -176,7 +176,7 @@ class AssemblyViewerWindow(QMainWindow):
         self.preserve_id_toggle_checkbox.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.toggle_layout = QHBoxLayout()
-        self.toggle_layout.addWidget(self.graph_toggle_checkbox)
+        #self.toggle_layout.addWidget(self.graph_toggle_checkbox)
         self.toggle_layout.addWidget(self.grid_toggle_checkbox) 
         self.toggle_layout.addWidget(self.preserve_id_toggle_checkbox)
 
@@ -335,11 +335,11 @@ class AssemblyViewerWindow(QMainWindow):
     @Slot(list)
     def export_finished(self, results):
         # Optionally, display the selected assemblies in a graph
-        if self.graph_toggle_checkbox.isChecked():
-            viewer = IFCGraphViewer(self.G, self.entities_to_export)
-            dock = QDockWidget(f"Graph of {self.title}" if self.title else "Graph view", self)
-            dock.setWidget(viewer)
-            self.addDockWidget(Qt.RightDockWidgetArea, dock)
+       # if self.graph_toggle_checkbox.isChecked():
+       #     viewer = IFCGraphViewer(self.G, self.entities_to_export)
+       #     dock = QDockWidget(f"Graph of {self.title}" if self.title else "Graph view", self)
+       #     dock.setWidget(viewer)
+       #     self.addDockWidget(Qt.RightDockWidgetArea, dock)
         
         self.spinner_timer.stop()
         # "Exported {entity_count} {entity_type}(s) to {file_path}"

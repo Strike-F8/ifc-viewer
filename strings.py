@@ -131,7 +131,7 @@ A_EXPORTING_KEYS = [
 
 def mark_a_status_label_key():
     q.translate("Assembly Status Label", "Select the assemblies to be exported")
-    q.translate("Assembly Status Label", "Exporting {entity_count} {entity_type}(s) {file_path}")
+    q.translate("Assembly Status Label", "Exporting {entity_count} {entity_type}(s) to {file_path}")
     q.translate("Assembly Status Label", "Exported {entity_count} {entity_type}(s) to {file_path}")
 
 # ==============================
