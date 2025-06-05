@@ -17,6 +17,7 @@ from strings import (
 
 from .preserve_ids import PreserveIDExportWorker
 from .new_ids import NewIDExportWorker
+from .utils import open_new_ifc_viewer
 
 def is_iterable(obj):
     return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
@@ -169,12 +170,17 @@ class AssemblyViewerWindow(QMainWindow):
         # "Preserve original STEP IDs (BUGGY!)"
         self.preserve_id_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[2], self, context="Exporter Checkboxes")
         self.preserve_id_toggle_checkbox.setChecked(False)
-        self.preserve_id_toggle_checkbox.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        # Open Exported File
+        self.open_file_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[3], self, context="Exporter Checkboxes")
+        self.open_file_toggle_checkbox.setChecked(False)
+        self.open_file_toggle_checkbox.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.toggle_layout = QHBoxLayout()
         #self.toggle_layout.addWidget(self.graph_toggle_checkbox)
         self.toggle_layout.addWidget(self.grid_toggle_checkbox) 
         self.toggle_layout.addWidget(self.preserve_id_toggle_checkbox)
+        self.toggle_layout.addWidget(self.open_file_toggle_checkbox)
 
     def browse_export_path(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -331,19 +337,25 @@ class AssemblyViewerWindow(QMainWindow):
     @Slot(list)
     def export_finished(self, results):
         # Optionally, display the selected assemblies in a graph
-       # if self.graph_toggle_checkbox.isChecked():
-       #     viewer = IFCGraphViewer(self.G, self.entities_to_export)
-       #     dock = QDockWidget(f"Graph of {self.title}" if self.title else "Graph view", self)
-       #     dock.setWidget(viewer)
-       #     self.addDockWidget(Qt.RightDockWidgetArea, dock)
-        
+        # self.draw_graph() 
         self.spinner_timer.stop()
+
         # "Exported {entity_count} {entity_type}(s) to {file_path}"
         self.status_label.setText(A_EXPORTING_KEYS[1],
-                                  format_args={"entity_count": str(len(self.entities_to_export)),
-                                               "entity_type": "Assembly",
-                                               "file_path": results[0]})
+                    format_args={"entity_count": str(len(self.entities_to_export)),
+                                "entity_type": "Assembly",
+                                "file_path": results[0]})
+
+        if self.open_file_toggle_checkbox.isChecked():
+            open_new_ifc_viewer(results[0]) 
    
+#    def draw_graph(self):
+#        if self.graph_toggle_checkbox.isChecked():
+#            viewer = IFCGraphViewer(self.G, self.entities_to_export)
+#            dock = QDockWidget(f"Graph of {self.title}" if self.title else "Graph view", self)
+#            dock.setWidget(viewer)
+#            self.addDockWidget(Qt.RightDockWidgetArea, dock)
+        
     # Find all assemblies in the ifc file
     # Return the assemblies as a dictionary
     # Key: Assembly mark, Value: Entity object

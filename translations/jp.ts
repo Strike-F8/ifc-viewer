@@ -45,19 +45,24 @@
 <context>
     <name>Exporter Checkboxes</name>
     <message>
-        <location filename="../strings.py" line="162"/>
+        <location filename="../strings.py" line="163"/>
         <source>Draw Graph</source>
         <translation>グラフを描く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="163"/>
+        <location filename="../strings.py" line="164"/>
         <source>Export Grids</source>
         <translation>グリッドを出力</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="164"/>
+        <location filename="../strings.py" line="165"/>
         <source>Preserve original STEP IDs (BUGGY!)</source>
         <translation>元のファイルのSTEP IDを保存する（この機能は未完成！）</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="166"/>
+        <source>Open Exported File</source>
+        <translation>出力したファイルを開く</translation>
     </message>
 </context>
 <context>

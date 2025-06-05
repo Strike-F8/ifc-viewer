@@ -154,10 +154,12 @@ def mark_output_path_keys():
 A_EXPORTER_CHECKBOX_KEYS = [
     "Draw Graph",
     "Export Grids",
-    "Preserve original STEP IDs (BUGGY!)"
+    "Preserve original STEP IDs (BUGGY!)",
+    "Open Exported File"
 ]
 
 def mark_checkbox_keys():
     q.translate("Exporter Checkboxes", "Draw Graph")
     q.translate("Exporter Checkboxes", "Export Grids")
     q.translate("Exporter Checkboxes", "Preserve original STEP IDs (BUGGY!)")
+    q.translate("Exporter Checkboxes", "Open Exported File")

@@ -1,24 +1,11 @@
-# Open a new window in a separate process from the file menu
-def open_new_window():
-    if getattr(sys, 'frozen', False):
-        # We're in a compiled binary, use our own executable
-        target = os.path.join(os.path.dirname(sys.executable), "IFCViewer.exe")
-        args = [target]
-        os.spawnv(os.P_DETACH, target, args)
-    else:
-        # We're running as a .py file, launch it with Python
-        target = os.path.abspath("IFCViewer.py")
-        args = [sys.executable, target]
-        os.spawnv(os.P_DETACH, sys.executable, args)
-
 import sys
 import os
 import json
 import ifcopenshell
 
 from exporter.assembly_viewer import AssemblyViewerWindow
-from db              import DBWorker, SqlEntityTableModel
-from options         import OptionsDialog
+from db                       import DBWorker, SqlEntityTableModel
+from options                  import OptionsDialog
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget,
@@ -40,6 +27,7 @@ from strings import (
 )
 
 from options import CONFIG_PATH
+from exporter.utils import open_new_ifc_viewer
                                                 
 # TODO: Clearer labels for the main 3 views for ease of use
 
@@ -69,12 +57,6 @@ class IfcViewer(QMainWindow):
 
         self.setWindowTitle("IFC Viewer")
         self.file_path = ifc_file
-
-        # If an IFC file has already been provided, load it into memory
-        if ifc_file:
-            self.ifc_model = self.load_ifc(self.file_path)
-        else:
-            self.ifc_model = None
 
         self.max_recent_files = 10
         self.recent_files = self.load_recent_files()
@@ -160,6 +142,12 @@ class IfcViewer(QMainWindow):
         self.spinner_timer.setInterval(100)
         self.spinner_timer.timeout.connect(self.update_spinner)
 
+        # If an IFC file has already been provided, load it into memory
+        if ifc_file:
+            self.ifc_model = self.load_ifc(self.file_path)
+        else:
+            self.ifc_model = None
+
     def add_toolbar(self):
         toolbar = QToolBar("Main Toolbar")
         self.addToolBar(Qt.LeftToolBarArea, toolbar)
@@ -190,7 +178,7 @@ class IfcViewer(QMainWindow):
         file_menu = self.menubar.addMenu(FILE_MENU_KEY)
 
         file_menu_actions = [
-            self.open_ifc_file, open_new_window
+            self.open_ifc_file, open_new_ifc_viewer
         ]
 
         for label, handler in zip(
@@ -209,7 +197,6 @@ class IfcViewer(QMainWindow):
         self.filter_bar.textChanged.connect(self.apply_filter)
     
     def add_filter_button(self):
-        # But maybe it should stay for user satisfaction
         # "Filter"
         self.filter_button = TPushButton(FILTER_WIDGET_KEYS[1], self, context="Filter Widget")
         self.filter_button.clicked.connect(self.apply_filter)
@@ -378,7 +365,6 @@ class IfcViewer(QMainWindow):
    
     @Slot()
     def update_spinner(self):
-        # TODO: Instead of a spinner, animate the text
         frame = self.spinner_frames[self.current_frame % len(self.spinner_frames)]
         current_text = self.status_label.text()
 
