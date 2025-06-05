@@ -376,7 +376,7 @@ class IfcViewer(QMainWindow):
         self.row_count_label.show()
         self.row_count_bar_stack.setCurrentWidget(self.row_count_label)
    
-    @Slot(int)
+    @Slot()
     def update_spinner(self):
         # TODO: Instead of a spinner, animate the text
         frame = self.spinner_frames[self.current_frame % len(self.spinner_frames)]

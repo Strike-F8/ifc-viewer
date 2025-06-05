@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QTableView, QHeaderView, QDockWidget, QMainWindow, QWidget, QVBoxLayout, QApplication,
     QAbstractItemView, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy, QMenu
 )
-from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel
+from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, QThread, Signal, Slot, QTimer
 
 import networkx as nx
 from ifc_graph_viewer import IFCGraphViewer
@@ -16,15 +16,254 @@ from ifc_graph_viewer import IFCGraphViewer
 from ui import TLabel, TPushButton, TCheckBox, TAction
 from strings import (
     A_STATUS_LABEL_KEY, A_OUTPUT_PATH_LABEL_KEY, A_OUTPUT_BROWSE_KEY, A_EXPORTER_CHECKBOX_KEYS,
-    A_EXPORT_BUTTON_KEY, CONTEXT_MENU_ACTION_KEYS
+    A_EXPORT_BUTTON_KEY, CONTEXT_MENU_ACTION_KEYS, A_EXPORTING_KEYS
 )
 def is_iterable(obj):
     return isinstance(obj, Iterable) and not isinstance(obj, (str, bytes))
 
 from options import CONFIG_PATH
 # TODO: Show a progress bar for export
-# TODO: Show an export completed message
 # TODO: IFC version selector
+# TODO: Open exported ifc in a new ifc viewer window
+
+class ExportWorker(QThread):
+    progress = Signal(int)
+    finished = Signal(list)
+
+    def __init__(self, entities_to_export, export_path, original_model,
+                 grid_toggle=False):
+        super().__init__()
+        self.entities_to_export = entities_to_export
+        self.export_path = export_path
+        self.ifc_model = original_model
+        self.grid_toggle = grid_toggle
+
+    def run(self):
+        # Create a directed graph to represent the forward and reverse references for the assemblies to be exported
+        self.G = nx.DiGraph()
+        # Get selected entities
+        print("ExportWorker:")
+        print("Exporting the following assemblies:")
+        for entity in self.entities_to_export:
+            print(entity.id())
+        print(f"{len(self.entities_to_export)} entities")
+
+        # TODO: Add an ifc version selector
+        self.output_model = ifcopenshell.file(schema="IFC4X3")
+
+        # Add assemblies and their objects
+        objects = []
+        for assembly in self.entities_to_export:
+            self.add_to_output_model(assembly)
+            temp = self.find_assembly_objects(assembly)
+            for object in temp:
+                self.add_to_output_model(object)
+            objects.extend(temp)
+
+        # Find related entities for each assembly
+        for element in self.entities_to_export:
+            self.find_ifc_rel_contained_in_spatial_structure(element, self.entities_to_export)
+        
+        # Find related entities for each object
+        for object in objects:
+            self.find_ifc_rel_defines_by_properties(entity=object, allowed_entities=self.entities_to_export)
+            self.find_material(object, self.entities_to_export)
+            self.find_voids_elements(object)
+
+            for child in self.get_children_recursive(object):
+                self.add_to_output_model(object)
+
+        self.export_assemblies_to_file()
+        self.finished.emit([self.G, self.export_path])
+
+    # ----------------------
+    # Helper methods below
+    # ----------------------
+
+    # Add a given entity to the networkx graph
+    # Call this method rather than inserting manually
+    def add_entity_to_graph(self, entity, source=None, color=None):
+        self.G.add_node(entity.id(), entity=entity, color=color or 'default')
+        if source:
+            self.G.add_edge(source.id(), entity.id())
+
+    # This method gets a relating entity that references the given entity.
+    # However, the relating entity also references many other entities
+    # so we remove the references we are not planning to export before adding
+    # it to the output model. Lastly, revert the change to the reference list
+    # to prevent corruption in the original model
+    def clone_relation_with_filtered_targets(self, relation, attr_name, allowed_targets):
+        original = getattr(relation, attr_name)
+        intersection = list(set(original).intersection(allowed_targets))
+        setattr(relation, attr_name, intersection)
+        self.add_to_output_model(relation)
+        setattr(relation, attr_name, original)
+
+    def add_to_output_model(self, entity):
+        attributes = entity.get_info()
+        try:
+            return self.output_model.create_entity(**attributes)
+        except Exception as e:
+            print(e)
+            return -1
+
+    # Find all objects that make up a given assembly
+    def find_assembly_objects(self, assembly):
+        rel_agg = self.find_ifc_rel_aggregates(assembly)
+        if not rel_agg:
+            return []
+
+        objects = rel_agg.RelatedObjects
+        for obj in objects:
+            self.add_to_output_model(obj)
+        return objects
+
+    # Find the IfcRelAggregates entity that references the given assembly
+    # This provides a list of all objects that make up the assembly
+    def find_ifc_rel_aggregates(self, assembly):
+        for relation in assembly.IsDecomposedBy:
+            if relation.is_a("IfcRelAggregates"):
+                self.add_to_output_model(relation)
+                return relation
+        return None
+
+    # Find all voiding elements associated with the given object/element
+    def find_voids_elements(self, element):
+        for rel_void in element.HasOpenings:
+            self.add_to_output_model(rel_void)
+            children = self.get_children_recursive(rel_void)
+            for child in children:
+                self.add_to_output_model(child)
+
+    # Every assembly is referenced by an IfcRelContainedInSpatialStructure entity
+    # which provides spatial data within the model for the assembly
+    # However, this referencing entity also references other assemblies
+    # so we make sure only to keep the references of assemblies we want to export
+    def find_ifc_rel_contained_in_spatial_structure(self, entity, allowed_entities):
+        for relation in entity.ContainedInStructure:
+            self.clone_relation_with_filtered_targets(relation, "RelatedElements", allowed_entities)
+
+    def find_ifc_rel_defines_by_properties(self, entity, allowed_entities):
+        for relation in entity.IsDefinedBy:
+            self.clone_relation_with_filtered_targets(relation, "RelatedObjects", allowed_entities)
+
+    def find_material(self, element, allowed_elements):
+        for assoc in element.HasAssociations:
+            if assoc.is_a("IfcRelAssociatesMaterial"):
+                self.clone_relation_with_filtered_targets(assoc, "RelatedObjects", allowed_elements)
+
+                material = assoc.RelatingMaterial
+                if material:
+                    self.add_to_output_model(material)
+                return material
+        return None
+    
+    def get_related_entities(self, entity_type):
+        entities = self.ifc_model.by_type(entity_type)
+        for entity in entities:
+            self.add_to_output_model(entity)
+            children = self.get_children_recursive(entity)
+            parents = list(self.ifc_model.get_inverse(entity))
+            # Combine the forward and reverse references of the IfcProject entity
+            entities_to_add = children + parents
+
+            # Add the IfcProject entity and its directly related entities
+            for entity in entities_to_add:
+                self.add_to_output_model(entity)
+        
+    def export_assemblies_to_file(self):
+        print(f"Exporting {len(self.G)} entities to {self.export_path}")
+
+        # Prepare the model for output
+        # There are certain entities that are necessary for being read by other programs
+        # IfcProject, IfcBuilding, IfcSite
+
+        # Get IfcProject
+        self.get_related_entities("IfcProject")
+       
+        # Get IfcBuilding
+        self.get_related_entities("IfcBuilding")
+
+        # Get IfcSite
+        self.get_related_entities("IfcSite")
+
+        self.get_related_entities("IfcOrganization")
+
+        self.get_related_entities("IfcPerson")
+
+        # Add the assemblies we want to export
+        print("OUTPUTTING FROM GRAPH")
+        for node_id, node_attributes in self.G.nodes(data=True):
+            entity = node_attributes.get("entity")
+            print(f"Outputting {entity}")
+            if entity:
+                self.add_to_output_model(entity)
+        
+        
+        self.check_references() # Check if forward references are missing
+
+        # Remove IfcGrid and IfcGridAxis
+        if not self.grid_toggle:
+            for entity in self.output_model.by_type("IfcGridAxis"):
+                self.output_model.remove(entity)
+            for entity in self.output_model.by_type("IfcGrid"):
+                self.output_model.remove(entity)
+        self.output_model.write(self.export_path)
+
+    def check_references(self):
+        for entity in self.output_model:
+            for attr in entity.get_info().keys():
+                if attr in ("id", "type", "Name", "Description", "GlobalId"):
+                    continue
+                try:
+                    val = getattr(entity, attr)
+                except AttributeError:
+                    continue
+                if isinstance(val, ifcopenshell.entity_instance):
+                    try:
+                        temp = self.output_model.by_id(val.id())
+                    except:
+                        self.add_to_output_model(val)
+                        children = self.get_children_recursive(val)
+                        for child in children:
+                            if self.add_to_output_model(child) == -1: # Stop adding if children already exist TODO: often skips important entities
+                                break
+                        print(f"{val.id()}: was missing so added to model\n+ {len(children)} children")
+                elif isinstance(val, Iterable) and not isinstance(val, (str, bytes)):
+                    for v in val:
+                        try:
+                            if isinstance(v, ifcopenshell.entity_instance):
+                                temp = self.output_model.by_id(v.id())
+                        except:
+                            self.add_to_output_model(v)
+                            children = self.get_children_recursive(v)
+                            for child in children:
+                                if self.add_to_output_model(child) == -1:
+                                    break
+                            print(f"{v.id()}: was missing so added to model\n+ {len(children)} children")
+    
+    def get_children_recursive(self, entity):
+        children = []
+
+        for attr in entity.get_info().keys():
+            if attr in ("id", "type", "Name", "Description", "GlobalId"):
+                continue
+            try:
+                value = getattr(entity, attr)
+            except AttributeError:
+                continue
+
+            if isinstance(value, ifcopenshell.entity_instance):
+                children.append(value)
+                children.extend(self.get_children_recursive(value))
+            elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
+                for v in value:
+                    if isinstance(v, ifcopenshell.entity_instance):
+                        children.append(v)
+                        children.extend(self.get_children_recursive(v))
+
+        return children
+
 class AssemblyTableModel(QAbstractTableModel):
     def __init__(self, assemblies, parent=None):
         super().__init__(parent)
@@ -65,7 +304,6 @@ class AssemblyTableModel(QAbstractTableModel):
                 name = info.get("Name", "")
                 ifc_type = entity.is_a()
                 self.data_list.append([step_id, mark, global_id, name, ifc_type, entity])
-
 
 class AssemblyViewerWindow(QMainWindow):
     def __init__(self, ifc_model, title=None, parent=None):
@@ -111,9 +349,15 @@ class AssemblyViewerWindow(QMainWindow):
         layout.addWidget(self.assembly_table)
         self.setCentralWidget(central_widget)
 
-        # Create a directed graph to represent the forward and reverse references for the assemblies to be exported
-        self.G = nx.DiGraph()
-    
+        # Loading spinner
+        self.spinner_frames = ["|", "/", "-", "\\"]
+        self.current_frame = 0
+
+        # Set a timer to update the spinning animation while exporting
+        self.spinner_timer = QTimer()
+        self.spinner_timer.setInterval(100)
+        self.spinner_timer.timeout.connect(self.update_spinner)
+
     def load_recent_paths(self):
         if os.path.exists(CONFIG_PATH):
             try:
@@ -127,7 +371,7 @@ class AssemblyViewerWindow(QMainWindow):
     def add_assembly_export_button(self):
         # "Export"
         self.assembly_export_button = TPushButton(A_EXPORT_BUTTON_KEY, self, context="Output Path Selector")
-        self.assembly_export_button.clicked.connect(self.export_assemblies)
+        self.assembly_export_button.clicked.connect(self.export_button_clicked)
 
     def add_file_layout(self):
         self.recent_paths = self.load_recent_paths()
@@ -143,7 +387,7 @@ class AssemblyViewerWindow(QMainWindow):
         self.file_path_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.browse_button = TPushButton(A_OUTPUT_BROWSE_KEY, self, context="Output Path Selector")
-        self.browse_button.clicked.connect(self.browse_output_path)
+        self.browse_button.clicked.connect(self.browse_export_path)
     
         file_layout.addWidget(self.file_path_label)
         file_layout.addWidget(self.file_path_combo)
@@ -166,7 +410,7 @@ class AssemblyViewerWindow(QMainWindow):
         self.toggle_layout.addWidget(self.graph_toggle_checkbox)
         self.toggle_layout.addWidget(self.grid_toggle_checkbox) 
 
-    def browse_output_path(self):
+    def browse_export_path(self):
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Select destination file",
@@ -268,190 +512,71 @@ class AssemblyViewerWindow(QMainWindow):
 
         QApplication.clipboard().setText("\t".join(row_text))
 
-    # Triggered by the export button
-    def export_assemblies(self):
-        # Get selected entities
-        selected_entities = [
-            self.model.data(index, Qt.UserRole)
-            for index in self.assembly_table.selectionModel().selectedRows()
-            if self.model.data(index, Qt.UserRole)
-        ]
+    def export_button_clicked(self):
+        if not self.spinner_timer.isActive():
+            self.spinner_timer.start()
+            # Add current file path to recent files
+            export_path = self.file_path_combo.currentText()
+            self.update_recent_paths(export_path)
 
-        print("Exporting the following assemblies:")
-        for entity in selected_entities:
-            print(entity.id())
-        print(f"{len(selected_entities)} entities")
+            # TODO: Start loading UI
+            # "Exporting {file_path}"
+            self.status_label.setText(A_EXPORTING_KEYS[0])
+            # start export
+            self.entities_to_export = [
+                self.model.data(index, Qt.UserRole)
+                for index in self.assembly_table.selectionModel().selectedRows()
+                if self.model.data(index, Qt.UserRole)
+            ]
 
-        # TODO: Add an ifc version selector
-        self.output_model = ifcopenshell.file(schema=self.ifc_model.schema)
-        self.G.clear() # Reset the networkx graph before adding to it
+            self.export_worker = ExportWorker(self.entities_to_export, export_path,
+                                        self.ifc_model, self.grid_toggle_checkbox.isChecked())
+            self.export_worker.progress.connect(self.update_export_progress)
+            self.export_worker.finished.connect(self.export_finished)
+            self.export_worker.start()
 
-        # Add assemblies and their components
-        for assembly in selected_entities:
-            self.add_entity_to_graph(assembly, color='red')
-            components = self.find_assembly_objects(assembly)
-            selected_entities.extend(components)
+    def update_export_progress(self, percent):
+        self.progress_bar.setValue(percent)
+ 
+    @Slot(int)
+    def update_export_progress(self, progress):
+        print(f"Export progress: {progress}")
+        pass
 
-        # Find related entities for each object and assembly
-        for element in selected_entities:
-            self.find_ifc_rel_contained_in_spatial_structure(element, selected_entities)
-            self.find_ifc_rel_defines_by_properties(element, selected_entities)
-            self.find_material(element, selected_entities)
-            self.find_voids_elements(element)
+    @Slot()
+    def update_spinner(self):
+        # TODO: Instead of a spinner, animate the text
+        frame = self.spinner_frames[self.current_frame % len(self.spinner_frames)]
+        current_text = self.status_label.text()
 
-            #for child in self.get_children(element):
-            #    self.add_entity_to_graph(child, source=element)
+        if current_text[0] in self.spinner_frames:
+            new_text = frame + current_text[1:]
+        else:
+            new_text = frame + current_text
 
-        self.export_assemblies_to_file()
+        self.status_label.setText(new_text) # To prevent overriding the translated text
+                                            # Only update the spinner
+        self.current_frame += 1
+ 
+    
+    @Slot(list)
+    def export_finished(self, results):
+        self.G = results[0] # Get the networkx graph
 
         # Optionally, display the selected assemblies in a graph
         if self.graph_toggle_checkbox.isChecked():
-            viewer = IFCGraphViewer(self.G, selected_entities)
+            viewer = IFCGraphViewer(self.G, self.entities_to_export)
             dock = QDockWidget(f"Graph of {self.title}" if self.title else "Graph view", self)
             dock.setWidget(viewer)
             self.addDockWidget(Qt.RightDockWidgetArea, dock)
-
-    # ----------------------
-    # Helper methods below
-    # ----------------------
-
-    # Add a given entity to the networkx graph
-    # Call this method rather than inserting manually
-    def add_entity_to_graph(self, entity, source=None, color=None):
-        self.G.add_node(entity.id(), entity=entity, color=color or 'default')
-        if source:
-            self.G.add_edge(source.id(), entity.id())
-
-    # This method gets a relating entity that references the given entity.
-    # However, the relating entity also references many other entities
-    # so we remove the references we are not planning to export before adding
-    # it to the output model. Lastly, revert the change to the reference list
-    # to prevent corruption in the original model
-    def clone_relation_with_filtered_targets(self, relation, attr_name, allowed_targets):
-        original = getattr(relation, attr_name)
-        intersection = list(set(original).intersection(allowed_targets))
-        setattr(relation, attr_name, intersection)
-        self.output_model.add(relation)
-        setattr(relation, attr_name, original)
-
-    # Find all objects that make up a given assembly
-    def find_assembly_objects(self, assembly):
-        rel_agg = self.find_ifc_rel_aggregates(assembly)
-        if not rel_agg:
-            return []
-
-        objects = rel_agg.RelatedObjects
-        for obj in objects:
-            self.add_entity_to_graph(obj, source=rel_agg)
-        return objects
-
-    # Find the IfcRelAggregates entity that references the given assembly
-    # This provides a list of all objects that make up the assembly
-    def find_ifc_rel_aggregates(self, assembly):
-        for relation in assembly.IsDecomposedBy:
-            if relation.is_a("IfcRelAggregates"):
-                self.add_entity_to_graph(relation, source=assembly)
-                return relation
-        return None
-
-    # Find all voiding elements associated with the given object/element
-    def find_voids_elements(self, element):
-        for rel_void in element.HasOpenings:
-            self.add_entity_to_graph(rel_void, source=element)
-            void = rel_void.RelatedOpeningElement
-            self.add_entity_to_graph(void, source=rel_void)
-
-    # Every assembly is referenced by an IfcRelContainedInSpatialStructure entity
-    # which provides spatial data within the model for the assembly
-    # However, this referencing entity also references other assemblies
-    # so we make sure only to keep the references of assemblies we want to export
-    def find_ifc_rel_contained_in_spatial_structure(self, entity, allowed_entities):
-        for relation in entity.ContainedInStructure:
-            self.clone_relation_with_filtered_targets(relation, "RelatedElements", allowed_entities)
-            self.add_entity_to_graph(relation, source=entity)
-
-    # 
-    def find_ifc_rel_defines_by_properties(self, entity, allowed_entities):
-        for relation in entity.IsDefinedBy:
-            self.clone_relation_with_filtered_targets(relation, "RelatedObjects", allowed_entities)
-            self.add_entity_to_graph(relation, source=entity)
-
-    def find_material(self, element, allowed_elements):
-        for assoc in element.HasAssociations:
-            if assoc.is_a("IfcRelAssociatesMaterial"):
-                self.clone_relation_with_filtered_targets(assoc, "RelatedObjects", allowed_elements)
-                self.add_entity_to_graph(assoc, source=element)
-
-                material = assoc.RelatingMaterial
-                if material:
-                    self.add_entity_to_graph(material, source=assoc)
-                return material
-        return None
-
-    def export_assemblies_to_file(self):
-        output_path = self.file_path_combo.currentText()
-
-        print(f"Exporting {len(self.G)} entities to {output_path}")
-        # Add current file path to recent files
-        self.update_recent_paths(output_path)
-
-        # Prepare the model for output
-        # There are certain entities that are necessary for being read by other programs
-        # IfcProject, IfcBuilding
-
-        # Get IfcProject
-        project = self.ifc_model.by_type("IfcProject")[0] # by_type() returns a list but there is only one IfcProject so we take the first element
-        children = self.get_children(project)
-        parents = list(self.ifc_model.get_inverse(project))
-        # Combine the forward and reverse references of the IfcProject entity
-        entities_to_add = children + parents
-
-        # Add the IfcProject entity and its directly related entities
-        for entity in entities_to_add:
-            self.output_model.add(entity)
         
-        # Get IfcBuilding
-        building = self.ifc_model.by_type("IfcBuilding")[0]        
-        children = self.get_children(building)
-        parents = list(self.ifc_model.get_inverse(building))
-        entities_to_add = children + parents
-
-        # add the IfcBuilding entity and its directly related entities
-        for entity in entities_to_add:
-            self.output_model.add(entity)
-
-        # Add the assemblies we want to export
-        for node_id, node_attributes in self.G.nodes(data=True):
-            entity = node_attributes.get("entity")
-            #print(f"Outputting {entity}")
-            self.output_model.add(entity)
-        
-        # Remove IfcGrid and IfcGridAxis
-        if not self.grid_toggle_checkbox.isChecked():
-            for entity in self.output_model.by_type("IfcGridAxis"):
-                self.output_model.remove(entity)
-            for entity in self.output_model.by_type("IfcGrid"):
-                self.output_model.remove(entity)
-        
-        self.output_model.write(output_path)
-            
-    # Get the entities referenced by the given entity
-    # Return the children as a list
-    def get_children(self, entity):
-        children = []
-        for attr in entity.get_info().keys():
-            if attr in ("id", "type", "Name", "Description", "GlobalId"):
-                continue
-            try:
-                value = getattr(entity, attr)
-            except AttributeError:
-                continue
-            if isinstance(value, ifcopenshell.entity_instance):
-                children.append(value)
-            elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
-                children.extend([v for v in value if isinstance(v, ifcopenshell.entity_instance)])
-        return children
-    
+        self.spinner_timer.stop()
+        # "Exported {entity_count} {entity_type}(s) to {file_path}"
+        self.status_label.setText(A_EXPORTING_KEYS[1],
+                                  format_args={"entity_count": str(len(self.entities_to_export)),
+                                               "entity_type": "Assembly",
+                                               "file_path": results[1]})
+   
     # Find all assemblies in the ifc file
     # Return the assemblies as a dictionary
     # Key: Assembly mark, Value: Entity object

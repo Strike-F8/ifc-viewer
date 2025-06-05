@@ -124,9 +124,15 @@ def mark_row_count_key():
 # ==============================
 
 A_STATUS_LABEL_KEY = "Select the assemblies to be exported"
+A_EXPORTING_KEYS = [
+    "Exporting {entity_count} {entity_type}(s) {file_path}",
+    "Exported {entity_count} {entity_type}(s) to {file_path}"
+]
 
 def mark_a_status_label_key():
     q.translate("Assembly Status Label", "Select the assemblies to be exported")
+    q.translate("Assembly Status Label", "Exporting {entity_count} {entity_type}(s) {file_path}")
+    q.translate("Assembly Status Label", "Exported {entity_count} {entity_type}(s) to {file_path}")
 
 # ==============================
 # OUTPUT PATH SELECTOR
