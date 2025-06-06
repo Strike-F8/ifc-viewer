@@ -30,6 +30,7 @@ from options        import CONFIG_PATH
 from exporter.utils import open_new_ifc_viewer
                                                 
 # TODO: Clearer labels for the main 3 views for ease of use
+# TODO: Display the total and IFC version on the left
 
 # This simple worker takes in a line from the main thread and executes it in the background
 # It is used to execute ifcopenshell.open(file)
@@ -55,45 +56,13 @@ class IfcViewer(QMainWindow):
         self.translator = None # QTranslator: Allows the ui to be translated on demand
         language_manager.language_changed.connect(self.change_language) # Connect to the language manager in ui.py
 
+        self.row_count = 0 # Count the number of rows displayed in the middle view
+
         self.setWindowTitle("IFC Viewer")
         self.file_path = ifc_file
 
         self.max_recent_files = 10
         self.recent_files = self.load_recent_files()
-
-        self.middle_model = None # Set this up later when the ifc file is loaded
-        self.row_count = 0 # Count the number of rows displayed in the middle view
-        self.middle_view = QTableView()
-        self.middle_view.setSelectionBehavior(QAbstractItemView.SelectRows) # Select rows instead of cells
-        self.middle_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.middle_view.setSortingEnabled(True) # Enable sort requests. However, the model, not the view, will handle the sort
-        self.middle_view.verticalHeader().setDefaultSectionSize(20)
-        self.middle_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.middle_view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
-
-        self.middle_view.setWordWrap(False)
-
-        for i in range(4):
-            self.middle_view.setColumnWidth(i, 100)
-            
-        self.middle_view.horizontalHeader().setStretchLastSection(True)
-        self.middle_view.verticalHeader().setVisible(False)
-        self.middle_view.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.middle_view.customContextMenuRequested.connect(lambda pos, v=self.middle_view: self.show_context_menu(pos, v))
-
-        self.left_view = QTreeView()
-        self.left_model = QStandardItemModel()
-        self.left_model.setHorizontalHeaderLabels(['References -> Entity'])
-        self.left_view.setModel(self.left_model)
-        self.left_view.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.left_view.customContextMenuRequested.connect(lambda pos, v=self.left_view: self.show_context_menu(pos, v))
-
-        self.right_view = QTreeView()
-        self.right_model = QStandardItemModel()
-        self.right_model.setHorizontalHeaderLabels(['Entity <- Referenced By'])
-        self.right_view.setModel(self.right_model)
-        self.right_view.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.right_view.customContextMenuRequested.connect(lambda pos, v=self.right_view: self.show_context_menu(pos, v))
 
         self.add_toolbar()
         self.add_status_label()
@@ -101,15 +70,28 @@ class IfcViewer(QMainWindow):
         self.add_filter_bar()
         self.add_filter_button()
         self.add_count_and_progress_bar()
+        self.add_main_view()
 
-        # Lazy load children upon expanding a root item
-        self.left_view.expanded.connect(self.lazy_load_inverse_references)
-        self.right_view.expanded.connect(self.lazy_load_forward_references)
+        # Loading spinner
+        self.spinner_frames = ["|", "/", "-", "\\"]
+        self.current_frame = 0
+        
+        # Update the spinner every 100ms
+        self.spinner_timer = QTimer()
+        self.spinner_timer.setInterval(100)
+        self.spinner_timer.timeout.connect(self.update_spinner)
 
-        # Update the views when selecting an item in the middle or left views
-        self.left_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
+        # If an IFC file has already been provided, load it into memory
+        if ifc_file:
+            self.ifc_model = self.load_ifc(self.file_path)
+        else:
+            self.ifc_model = None
+    
+    def add_main_view(self):
+        self.add_middle_view()
+        self.add_left_view()
+        self.add_right_view()
 
-        # The three main views
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self.left_view)
         splitter.addWidget(self.middle_view)
@@ -128,25 +110,53 @@ class IfcViewer(QMainWindow):
         container.setLayout(center_layout)
         self.setCentralWidget(container)
 
+    def add_left_view(self):
+        self.left_view = QTreeView()
+        self.left_model = QStandardItemModel()
+        self.left_model.setHorizontalHeaderLabels(['References -> Entity'])
+        self.left_view.setModel(self.left_model)
+        self.left_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.left_view.customContextMenuRequested.connect(lambda pos, v=self.left_view: self.show_context_menu(pos, v))
+
+        self.left_view.expanded.connect(self.lazy_load_inverse_references)
+
+        # Update the views when selecting an item in the middle or left views
+        self.left_view.selectionModel().currentChanged.connect(self.handle_entity_selection)
+
+    def add_middle_view(self):
+        self.middle_model = None # Set this up later when the ifc file is loaded
+        self.middle_view = QTableView()
+        self.middle_view.setSelectionBehavior(QAbstractItemView.SelectRows) # Select rows instead of cells
+        self.middle_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.middle_view.setSortingEnabled(True) # Enable sort requests. However, the model, not the view, will handle the sort
+        self.middle_view.verticalHeader().setDefaultSectionSize(20)
+        self.middle_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.middle_view.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+
         # prevent autoscrolling when clicking on an item
         self.middle_view.setAutoScroll(False)
         self.middle_view.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.middle_view.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
 
-        # Loading spinner
-        self.spinner_frames = ["|", "/", "-", "\\"]
-        self.current_frame = 0
-        
-        # Update the spinner every 100ms
-        self.spinner_timer = QTimer()
-        self.spinner_timer.setInterval(100)
-        self.spinner_timer.timeout.connect(self.update_spinner)
+        self.middle_view.setWordWrap(False)
 
-        # If an IFC file has already been provided, load it into memory
-        if ifc_file:
-            self.ifc_model = self.load_ifc(self.file_path)
-        else:
-            self.ifc_model = None
+        for i in range(4):
+            self.middle_view.setColumnWidth(i, 100)
+            
+        self.middle_view.horizontalHeader().setStretchLastSection(True)
+        self.middle_view.verticalHeader().setVisible(False)
+        self.middle_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.middle_view.customContextMenuRequested.connect(lambda pos, v=self.middle_view: self.show_context_menu(pos, v))
+   
+    def add_right_view(self):
+        self.right_view = QTreeView()
+        self.right_model = QStandardItemModel()
+        self.right_model.setHorizontalHeaderLabels(['Entity <- Referenced By'])
+        self.right_view.setModel(self.right_model)
+        self.right_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.right_view.customContextMenuRequested.connect(lambda pos, v=self.right_view: self.show_context_menu(pos, v))
+
+        self.right_view.expanded.connect(self.lazy_load_forward_references)
 
     def add_toolbar(self):
         toolbar = QToolBar("Main Toolbar")
