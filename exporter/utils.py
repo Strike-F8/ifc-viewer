@@ -36,11 +36,11 @@ def could_not_find(ifc_type, entity):
 # to prevent corruption in the original model
 # Unlike other util methods, this one does not return any entities
 # It adds the result to the model passed in by the caller
-def clone_relation_with_filtered_targets(relation, attr_name, allowed_targets, dest_model):
+def clone_relation_with_filtered_targets(relation, attr_name, allowed_targets, dest_model, preserve_id=False):
     original = getattr(relation, attr_name)
     intersection = list(set(original).intersection(allowed_targets))
     setattr(relation, attr_name, intersection)
-    add_to_model(relation, dest_model)
+    add_to_model(relation, dest_model, preserve_id)
     setattr(relation, attr_name, original)
 
 def add_to_model(entity, model, preserve_id=False):
@@ -55,10 +55,10 @@ def add_to_model(entity, model, preserve_id=False):
             print(e)
             return -1
 
-def add_list_to_model(entities, model, preserve_id=False):
+def add_list_to_model(entities, model, preserve_ids=False):
     if entities:
         for entity in entities:
-            add_to_model(entity, model, preserve_id)
+            add_to_model(entity, model, preserve_ids)
     
 # Given an assembly (or any entity referenced by an IfcRelAggregates entity)
 # return the IfcRelAggregates entity
@@ -89,20 +89,20 @@ def find_opening(rel_voids):
 # which provides spatial data within the model for the assembly
 # However, this referencing entity also references other assemblies
 # so we make sure only to keep the references of assemblies we want to export
-def add_ifc_rel_contained_in_spatial_structure(entity, allowed_entities, model):
+def add_ifc_rel_contained_in_spatial_structure(entity, allowed_entities, model, preserve_id=False):
     for relation in entity.ContainedInStructure:
-        clone_relation_with_filtered_targets(relation, "RelatedElements", allowed_entities, model)
+        clone_relation_with_filtered_targets(relation, "RelatedElements", allowed_entities, model, preserve_id)
 
-def add_ifc_rel_defines_by_properties(entity, allowed_entities, model):
+def add_ifc_rel_defines_by_properties(entity, allowed_entities, model, preserve_id=False):
     for relation in entity.IsDefinedBy:
-        clone_relation_with_filtered_targets(relation, "RelatedObjects", allowed_entities, model)
+        clone_relation_with_filtered_targets(relation, "RelatedObjects", allowed_entities, model, preserve_id)
 
 # Given an entity and model, add the IfcRelAssociatesMaterial and IfcMaterial of the object to the model
 # Also return the IfcMaterial
-def add_material(entity, allowed_entities, model):
+def add_material(entity, allowed_entities, model, preserve_id=False):
     for assoc in entity.HasAssociations:
         if assoc.is_a("IfcRelAssociatesMaterial"):
-            clone_relation_with_filtered_targets(assoc, "RelatedObjects", allowed_entities, model)
+            clone_relation_with_filtered_targets(assoc, "RelatedObjects", allowed_entities, model, preserve_id)
 
             material = assoc.RelatingMaterial
             if material:
@@ -152,7 +152,6 @@ def find_related_entities(entity_type, model):
     entities = model.by_type(entity_type)
     entities_to_add = []
     for entity in entities:
-        entities_to_add.append(entity)
         children = get_children_recursive(entity)
         parents = list(model.get_inverse(entity))
         # Combine the forward and reverse references of the IfcProject entity
