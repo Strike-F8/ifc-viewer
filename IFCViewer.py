@@ -10,7 +10,7 @@ from options                  import OptionsDialog
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget,
     QToolBar, QMessageBox, QFileDialog, QMenu, QSplitter, QAbstractItemView, QHeaderView,
-    QProgressBar, QStackedLayout, QSizePolicy
+    QProgressBar, QStackedLayout, QSizePolicy, QDockWidget, QScrollArea
 )
 from PySide6.QtGui  import QAction, QStandardItemModel, QStandardItem, QFont, QFontDatabase
 from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator
@@ -30,8 +30,18 @@ from options        import CONFIG_PATH
 from exporter.utils import open_new_ifc_viewer
                                                 
 # TODO: Clearer labels for the main 3 views for ease of use
-# TODO: Display the total and IFC version on the left
+# TODO: Stats panel displaying total count, ifc version, count by ifc type, and time took to load
 
+class StatsPanel(QWidget):
+    def __init__(self, ifc_version, entity_count, entity_dict):
+        super().__init__()
+        stats_list_layout = QVBoxLayout()
+        self.setLayout(stats_list_layout)
+
+        stats_list_layout.addWidget(TLabel("Ifc Version"))
+        stats_list_layout.addWidget(TLabel("Entity count"))
+        stats_list_layout.addStretch()
+        
 # This simple worker takes in a line from the main thread and executes it in the background
 # It is used to execute ifcopenshell.open(file)
 # Large files can take some time to open so open them in the background and show a spinner in the meantime
@@ -71,6 +81,7 @@ class IfcViewer(QMainWindow):
         self.add_filter_button()
         self.add_count_and_progress_bar()
         self.add_main_view()
+        self.add_stats_panel()
 
         # Loading spinner
         self.spinner_frames = ["|", "/", "-", "\\"]
@@ -159,8 +170,8 @@ class IfcViewer(QMainWindow):
         self.right_view.expanded.connect(self.lazy_load_forward_references)
 
     def add_toolbar(self):
-        toolbar = QToolBar("Main Toolbar")
-        self.addToolBar(Qt.LeftToolBarArea, toolbar)
+        self.toolbar = QToolBar("Main Toolbar")
+        self.addToolBar(Qt.LeftToolBarArea, self.toolbar)
 
         # A list functions triggered by buttons in the toolbar
         # Order must match the order of strings imported from strings.py
@@ -175,7 +186,7 @@ class IfcViewer(QMainWindow):
             MAIN_TOOLBAR_TOOLTIP_KEYS,
             main_toolbar_actions
         ):
-            toolbar.addAction(TAction(label, self, context="Main Toolbar", tooltip=tooltip, triggered=handler))
+            self.toolbar.addAction(TAction(label, self, context="Main Toolbar", tooltip=tooltip, triggered=handler))
 
     def add_status_label(self):
         # ＜ーChoose an IFC file to open
@@ -239,6 +250,25 @@ class IfcViewer(QMainWindow):
 
         # Add the wrapped widget to the main layout
         self.row_count_bar_stack_widget.raise_()  # If needed to ensure z-order
+    
+    def add_stats_panel(self):
+        # show:
+        # Ifc version
+        # Total entities
+        # Import time
+        # Dynamic Count by Ifc Type
+        stats_panel = StatsPanel("version", 432, "Entities!")
+        scroll = QScrollArea()
+        scroll.setWidget(stats_panel)
+        scroll.setWidgetResizable(True)
+
+        stats_dock = QDockWidget("Stats")
+        stats_dock.setWidget(scroll)
+        stats_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.addDockWidget(Qt.LeftDockWidgetArea, stats_dock)
+        stats_dock.setFloating(False)
+
+        self.splitDockWidget(self., stats_dock, Qt.Vertical)
         
     # When clicking on an entity in either of the three views, show a context menu that allows the user to copy
     # the original step line of the entity
@@ -372,6 +402,12 @@ class IfcViewer(QMainWindow):
         self.progress_bar.hide()
         self.row_count_label.show()
         self.row_count_bar_stack.setCurrentWidget(self.row_count_label)
+
+        # Update stats on the lefthand side
+        self.show_stats()
+    
+    def show_stats(self):
+       pass
    
     @Slot()
     def update_spinner(self):

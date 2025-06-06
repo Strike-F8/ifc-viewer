@@ -166,3 +166,18 @@ def mark_exporter_settings_keys():
     q.translate("Exporter Settings", "Preserve original STEP IDs (BUGGY!)")
     q.translate("Exporter Settings", "Open Exported File")
     q.translate("Exporter Settings", "IFC Version: ")
+
+# ==============================
+# STATS PANEL
+# ==============================
+
+STATS_PANEL_KEYS = [
+    "Ifc Version: {version}",
+    "Entity Count: {count}",
+    "Loaded in {time}"
+]
+
+def mark_stats_panel_keys():
+    q.translate("STATS PANEL", "IFC Version: {version}")
+    q.translate("STATS PANEL", "Entity Count: {count}")
+    q.translate("STATS PANEL", "Loaded in {time}")
