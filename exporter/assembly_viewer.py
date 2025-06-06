@@ -346,7 +346,6 @@ class AssemblyViewerWindow(QMainWindow):
 
     @Slot()
     def update_spinner(self):
-        # TODO: Instead of a spinner, animate the text
         frame = self.spinner_frames[self.current_frame % len(self.spinner_frames)]
         current_text = self.status_label.text()
 
@@ -385,11 +384,13 @@ class AssemblyViewerWindow(QMainWindow):
             if self.open_file_toggle_checkbox.isChecked():
                 open_new_ifc_viewer(new_path)
         else:
-            open_new_ifc_viewer(export_path)
+            if self.open_file_toggle_checkbox.isChecked():
+                open_new_ifc_viewer(export_path)
 
         self.spinner_timer.stop()
     
     # Convert one model to another schema
+    # Converting to an older schema will probably not work
     def convert_schema_to(self, input_file, output_file, new_schema):
         #TODO: Create a help dialog with info about conversion
         old_model = ifcopenshell.open(input_file)
