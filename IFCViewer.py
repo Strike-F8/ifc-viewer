@@ -113,7 +113,7 @@ class StatsPanel(QWidget):
                                          format_args={"count": len(entity_dict)}))
 
             # Add the list of entity types
-            for ifc_type, count in entity_dict.items():
+            for ifc_type, count in sorted(entity_dict.items()):
                 label = ClickableLabel(f"{ifc_type}: {count}")
                 label.clicked.connect(self.on_label_clicked)
                 self.layout.addWidget(label)

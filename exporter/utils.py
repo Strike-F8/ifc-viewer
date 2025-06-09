@@ -1,26 +1,40 @@
 import os
 import sys
 import ifcopenshell
+import subprocess
+import platform
 from _collections_abc import Iterable
 
-# Open a new main window in a separate process from the file menu
+import os
+import sys
+import subprocess
+import platform
+
+def is_compiled():
+    return "__compiled__" in globals()
+
 def open_new_ifc_viewer(file_path=None):
-    if getattr(sys, 'frozen', False):
-        # We're in a compiled binary, use our own executable
-        target = os.path.join(os.path.dirname(sys.executable), "IFCViewer.exe")
-        if file_path:
-            args = [str(target), str(file_path)]
-        else:
-            args = [str(target)]
-        os.spawnv(os.P_DETACH, target, args)
+    system = platform.system()
+
+    if is_compiled():
+        target = sys.argv[0]
+        args = [target]
     else:
-        # We're running as a .py file, launch it with Python
         target = os.path.abspath("IFCViewer.py")
-        if file_path:
-            args = [str(sys.executable), str(target), str(file_path)]
-        else:
-            args = [str(sys.executable), str(target)]
-        os.spawnv(os.P_DETACH, sys.executable, args)
+        args = [sys.executable, target]
+
+    if file_path:
+        args.append(str(file_path))
+
+    print("Launching:", target, "with args:", args)
+
+    if system == "Windows":
+        subprocess.Popen(args, creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP, close_fds=True)
+    elif system == "Darwin":
+        subprocess.Popen(args, close_fds=True)
+    else:
+        subprocess.Popen(args, preexec_fn=os.setpgrp, close_fds=True)
+
         
 # =====================
 # IFC UTILS
