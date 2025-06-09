@@ -109,6 +109,9 @@ class AssemblyViewerWindow(QMainWindow):
         self.assembly_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.assembly_table.customContextMenuRequested.connect(lambda pos, v=self.assembly_table: self.show_context_menu(pos, v))
 
+        for i in range(4):
+            self.assembly_table.setColumnWidth(i, 150)
+
         layout.addWidget(self.assembly_table)
         self.setCentralWidget(central_widget)
 
