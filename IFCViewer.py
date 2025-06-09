@@ -595,13 +595,20 @@ class IfcViewer(QMainWindow):
 
     def save_recent_files(self):
         try:
-            with open(CONFIG_PATH, "r") as f: # Read the data first so we can modify instead of overwriting
-                data = json.load(f)
-            
+            # Load existing config if available, otherwise start with an empty dict
+            if os.path.exists(CONFIG_PATH):
+                with open(CONFIG_PATH, "r") as f:
+                    data = json.load(f)
+            else:
+                data = {}
+
+            # Update only the recent_files key
             data["recent_files"] = self.recent_files
 
+            # Save the updated config
             with open(CONFIG_PATH, 'w') as f:
-                json.dump(data, f)
+                json.dump(data, f, indent=4)
+
         except Exception as e:
             print("Error saving config:", e)
 
