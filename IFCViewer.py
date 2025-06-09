@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui  import QAction, QStandardItemModel, QStandardItem, QFont, QFontDatabase, QEnterEvent, QMouseEvent
 from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator
+from collections import defaultdict
 
 # Translation imports
 from ui import (language_manager,
@@ -506,15 +507,12 @@ class IfcViewer(QMainWindow):
                                       self.load_end - self.load_start)
        
     def count_entities(self):
-        entity_dict = {}
+        entity_dict = defaultdict(int)
         for entity in self.ifc_model:
-            type = entity.is_a()
-            try:
-                entity_dict[type] += 1
-            except:
-                entity_dict[type] = 1
+            entity_type = entity.is_a()
+            entity_dict[entity_type] += 1
 
-        return entity_dict
+        return dict(entity_dict)
    
     @Slot()
     def update_spinner(self):
