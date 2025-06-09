@@ -84,7 +84,7 @@
         <translation>出力したファイルを開く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="168"/>
+        <location filename="../strings.py" line="174"/>
         <source>IFC Version: </source>
         <translation>IFCバージョン： </translation>
     </message>
@@ -245,6 +245,29 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
 Please Wait...</source>
         <translation type="vanished">フィルタリング用のインデックスを作成しています
 しばらくお待ちください…</translation>
+    </message>
+</context>
+<context>
+    <name>Stats Panel</name>
+    <message>
+        <location filename="../strings.py" line="183"/>
+        <source>IFC Version: {version}</source>
+        <translation>IFCバージョン: {version}</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="184"/>
+        <source>Entity Count: {count}</source>
+        <translation>エンティティの数： {count}</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="185"/>
+        <source>Loaded in {time}</source>
+        <translation>読み込み時間: {time}</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="185"/>
+        <source>Total Entity Types: {count}</source>
+        <translation>エンティティの種類の数: {count}</translation>
     </message>
 </context>
 <context>

@@ -39,6 +39,7 @@ class ClickableLabel(QLabel):
     def __init__(self, text="", parent=None):
         super().__init__(text, parent)
         self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet(self.default_style())
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:
@@ -56,15 +57,14 @@ class ClickableLabel(QLabel):
     def default_style(self):
         return """
         QLabel {
-            padding: 4px;
+            padding: 2px;
         }
         """
 
     def hover_style(self):
         return """
         QLabel {
-            padding: 4px;
-            background-color: #e0f0ff;
+            padding: 2px;
             text-decoration: underline;
         }
         """
@@ -272,12 +272,13 @@ class IfcViewer(QMainWindow):
             self.toolbar.addAction(TAction(label, self, context="Main Toolbar", tooltip=tooltip, triggered=handler))
 
     def add_stats_panel(self):
+        # TODO: Make the stats panel a little easier to read (columns?)
         # show:
         # Ifc version
         # Total entities
         # Import time
         # Dynamic Count by Ifc Type
-        self.stats_panel = StatsPanel(entity_dict={"blabla": 25}, time_to_load=234)
+        self.stats_panel = StatsPanel()
         scroll = QScrollArea()
         scroll.setWidget(self.stats_panel)
         scroll.setWidgetResizable(True)
@@ -287,6 +288,8 @@ class IfcViewer(QMainWindow):
         stats_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea | Qt.BottomDockWidgetArea | Qt.TopDockWidgetArea)
         self.addDockWidget(Qt.BottomDockWidgetArea, stats_dock)
         stats_dock.setFloating(False)
+        stats_dock.setMinimumHeight(200)
+        stats_dock.setMinimumWidth(300)
 
         self.stats_panel.label_clicked.connect(self.stats_label_clicked)
 
@@ -796,6 +799,6 @@ if __name__ == "__main__":
 
     app.setFont(font)
     viewer = IfcViewer(file_path)
-    viewer.resize(1200, 600)
+    viewer.resize(1200, 700)
     viewer.show()
     sys.exit(app.exec())

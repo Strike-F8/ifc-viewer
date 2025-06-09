@@ -172,7 +172,7 @@ def mark_exporter_settings_keys():
 # ==============================
 
 STATS_PANEL_KEYS = [
-    "Ifc Version: {version}",
+    "IFC Version: {version}",
     "Entity Count: {count}",
     "Loaded in {time}",
     "Total Entity Types: {count}"
