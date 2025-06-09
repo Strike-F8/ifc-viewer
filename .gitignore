@@ -8,3 +8,5 @@
 /*db
 *.db
 *.sqlite*
+/.vs
+__pycache__

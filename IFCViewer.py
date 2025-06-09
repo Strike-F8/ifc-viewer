@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import ifcopenshell
+import time
 
 from exporter.assembly_viewer import AssemblyViewerWindow
 from db                       import DBWorker, SqlEntityTableModel
@@ -10,9 +11,9 @@ from options                  import OptionsDialog
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTreeView, QTableView, QHBoxLayout, QVBoxLayout, QWidget,
     QToolBar, QMessageBox, QFileDialog, QMenu, QSplitter, QAbstractItemView, QHeaderView,
-    QProgressBar, QStackedLayout, QSizePolicy, QDockWidget, QScrollArea
+    QProgressBar, QStackedLayout, QSizePolicy, QDockWidget, QScrollArea, QLabel
 )
-from PySide6.QtGui  import QAction, QStandardItemModel, QStandardItem, QFont, QFontDatabase
+from PySide6.QtGui  import QAction, QStandardItemModel, QStandardItem, QFont, QFontDatabase, QEnterEvent, QMouseEvent
 from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator
 
 # Translation imports
@@ -23,7 +24,7 @@ from ui import (language_manager,
 from strings import (
     MAIN_TOOLBAR_ACTION_KEYS, MAIN_TOOLBAR_TOOLTIP_KEYS, CONTEXT_MENU_ACTION_KEYS,
     FILE_MENU_ACTION_KEYS, FILE_MENU_KEY, RECENT_FILES_MENU_KEY, MAIN_STATUS_LABEL_KEYS, ROW_COUNT_KEY,
-    BUILDING_INDEX_KEY, FILTER_WIDGET_KEYS
+    BUILDING_INDEX_KEY, FILTER_WIDGET_KEYS, STATS_PANEL_KEYS
 )
 
 from options        import CONFIG_PATH
@@ -32,15 +33,97 @@ from exporter.utils import open_new_ifc_viewer
 # TODO: Clearer labels for the main 3 views for ease of use
 # TODO: Stats panel displaying total count, ifc version, count by ifc type, and time took to load
 
-class StatsPanel(QWidget):
-    def __init__(self, ifc_version, entity_count, entity_dict):
-        super().__init__()
-        stats_list_layout = QVBoxLayout()
-        self.setLayout(stats_list_layout)
+class ClickableLabel(QLabel):
+    clicked = Signal()
 
-        stats_list_layout.addWidget(TLabel("Ifc Version"))
-        stats_list_layout.addWidget(TLabel("Entity count"))
-        stats_list_layout.addStretch()
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
+
+    def enterEvent(self, event: QEnterEvent):
+        self.setStyleSheet(self.hover_style())
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.setStyleSheet(self.default_style())
+        super().leaveEvent(event)
+
+    def default_style(self):
+        return """
+        QLabel {
+            padding: 4px;
+        }
+        """
+
+    def hover_style(self):
+        return """
+        QLabel {
+            padding: 4px;
+            background-color: #e0f0ff;
+            text-decoration: underline;
+        }
+        """
+
+class StatsPanel(QWidget):
+    label_clicked = Signal(str)
+
+    def __init__(self, ifc_version=None, entity_dict=None, time_to_load=None):
+        super().__init__()
+
+        # Layout setup
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
+
+        # Optional: help layout manage vertical spacing
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+        self.setMinimumWidth(200)
+
+        self.update_stats(ifc_version, entity_dict, time_to_load)
+
+    def update_stats(self, ifc_version=None, entity_dict=None, time_to_load=None):
+        # Clear layout
+        while self.layout.count():
+            item = self.layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # "IFC Version: {version}"
+        self.layout.addWidget(TLabel(STATS_PANEL_KEYS[0],
+                                     self,
+                                     context="Stats Panel",
+                                     format_args={"version": ifc_version}))
+
+        if time_to_load:
+            # "Loaded in {time}"
+            self.layout.addWidget(TLabel(STATS_PANEL_KEYS[2],
+                                     self,
+                                     context="Stats Panel",
+                                     format_args={"time": time_to_load}))
+
+        if entity_dict:
+            self.layout.addWidget(TLabel(STATS_PANEL_KEYS[3],
+                                         self,
+                                         context="Stats Panel",
+                                         format_args={"count": len(entity_dict)}))
+
+            # Add the list of entity types
+            for ifc_type, count in entity_dict.items():
+                label = ClickableLabel(f"{ifc_type}: {count}")
+                label.clicked.connect(self.on_label_clicked)
+                self.layout.addWidget(label)
+
+        self.layout.addStretch()
+
+    def on_label_clicked(self):
+        label = self.sender()
+        ifc_type = label.text().split(":")[0]
+        print(f"IFC type: {ifc_type}")
+        self.label_clicked.emit(ifc_type)
         
 # This simple worker takes in a line from the main thread and executes it in the background
 # It is used to execute ifcopenshell.open(file)
@@ -188,6 +271,25 @@ class IfcViewer(QMainWindow):
         ):
             self.toolbar.addAction(TAction(label, self, context="Main Toolbar", tooltip=tooltip, triggered=handler))
 
+    def add_stats_panel(self):
+        # show:
+        # Ifc version
+        # Total entities
+        # Import time
+        # Dynamic Count by Ifc Type
+        self.stats_panel = StatsPanel(entity_dict={"blabla": 25}, time_to_load=234)
+        scroll = QScrollArea()
+        scroll.setWidget(self.stats_panel)
+        scroll.setWidgetResizable(True)
+
+        stats_dock = QDockWidget("Stats")
+        stats_dock.setWidget(scroll)
+        stats_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea | Qt.BottomDockWidgetArea | Qt.TopDockWidgetArea)
+        self.addDockWidget(Qt.BottomDockWidgetArea, stats_dock)
+        stats_dock.setFloating(False)
+
+        self.stats_panel.label_clicked.connect(self.stats_label_clicked)
+
     def add_status_label(self):
         # ＜ーChoose an IFC file to open
         self.status_label = TLabel(MAIN_STATUS_LABEL_KEYS[0], parent=self, context="Main Status Label")
@@ -251,25 +353,7 @@ class IfcViewer(QMainWindow):
         # Add the wrapped widget to the main layout
         self.row_count_bar_stack_widget.raise_()  # If needed to ensure z-order
     
-    def add_stats_panel(self):
-        # show:
-        # Ifc version
-        # Total entities
-        # Import time
-        # Dynamic Count by Ifc Type
-        stats_panel = StatsPanel("version", 432, "Entities!")
-        scroll = QScrollArea()
-        scroll.setWidget(stats_panel)
-        scroll.setWidgetResizable(True)
-
-        stats_dock = QDockWidget("Stats")
-        stats_dock.setWidget(scroll)
-        stats_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.addDockWidget(Qt.LeftDockWidgetArea, stats_dock)
-        stats_dock.setFloating(False)
-
-        self.splitDockWidget(self., stats_dock, Qt.Vertical)
-        
+       
     # When clicking on an entity in either of the three views, show a context menu that allows the user to copy
     # the original step line of the entity
     def show_context_menu(self, position, view):
@@ -341,6 +425,10 @@ class IfcViewer(QMainWindow):
                 row_text.append(str(text))
 
         QApplication.clipboard().setText("\t".join(row_text))
+
+    def stats_label_clicked(self, ifc_type):
+        self.filter_bar.setText(ifc_type)
+        self.apply_filter()
  
     def load_ifc(self, file_path):
         self.setWindowTitle(os.path.basename(file_path))
@@ -367,6 +455,7 @@ class IfcViewer(QMainWindow):
             # "Now loading IFC model into view"
             self.status_label.setText(MAIN_STATUS_LABEL_KEYS[2])
             self.spinner_timer.start()
+            self.load_start = time.perf_counter()
 
             self.middle_model = None
 
@@ -403,11 +492,26 @@ class IfcViewer(QMainWindow):
         self.row_count_label.show()
         self.row_count_bar_stack.setCurrentWidget(self.row_count_label)
 
-        # Update stats on the lefthand side
-        self.show_stats()
+        # Update stats on the righthand side
+        self.load_end = time.perf_counter()
+        self.update_stats_panel()
     
-    def show_stats(self):
-       pass
+    def update_stats_panel(self):
+        entity_dict = self.count_entities()
+        self.stats_panel.update_stats(self.ifc_model.schema,
+                                      entity_dict,
+                                      self.load_end - self.load_start)
+       
+    def count_entities(self):
+        entity_dict = {}
+        for entity in self.ifc_model:
+            type = entity.is_a()
+            try:
+                entity_dict[type] += 1
+            except:
+                entity_dict[type] = 1
+
+        return entity_dict
    
     @Slot()
     def update_spinner(self):

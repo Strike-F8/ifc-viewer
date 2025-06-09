@@ -174,10 +174,12 @@ def mark_exporter_settings_keys():
 STATS_PANEL_KEYS = [
     "Ifc Version: {version}",
     "Entity Count: {count}",
-    "Loaded in {time}"
+    "Loaded in {time}",
+    "Total Entity Types: {count}"
 ]
 
 def mark_stats_panel_keys():
-    q.translate("STATS PANEL", "IFC Version: {version}")
-    q.translate("STATS PANEL", "Entity Count: {count}")
-    q.translate("STATS PANEL", "Loaded in {time}")
+    q.translate("Stats Panel", "IFC Version: {version}")
+    q.translate("Stats Panel", "Entity Count: {count}")
+    q.translate("Stats Panel", "Loaded in {time}")
+    q.translate("Stats Panel", "Total Entity Types: {count}")
