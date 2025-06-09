@@ -125,7 +125,7 @@ def mark_row_count_key():
 
 A_STATUS_LABEL_KEY = "Select the assemblies to be exported"
 A_EXPORTING_KEYS = [
-    "Exporting {entity_count} {entity_type}(s) {file_path}",
+    "Exporting {entity_count} {entity_type}(s) to {file_path}",
     "Exported {entity_count} {entity_type}(s) to {file_path}"
 ]
 
@@ -174,12 +174,12 @@ def mark_exporter_settings_keys():
 STATS_PANEL_KEYS = [
     "IFC Version: {version}",
     "Entity Count: {count}",
-    "Loaded in {time}",
+    "Loaded in {time}s",
     "Total Entity Types: {count}"
 ]
 
 def mark_stats_panel_keys():
     q.translate("Stats Panel", "IFC Version: {version}")
     q.translate("Stats Panel", "Entity Count: {count}")
-    q.translate("Stats Panel", "Loaded in {time}")
+    q.translate("Stats Panel", "Loaded in {time}s")
     q.translate("Stats Panel", "Total Entity Types: {count}")

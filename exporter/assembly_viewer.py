@@ -7,7 +7,7 @@ from collections.abc import Iterable
 
 from PySide6.QtWidgets import (
     QTableView, QHeaderView, QMainWindow, QWidget, QVBoxLayout, QApplication, QMessageBox,
-    QAbstractItemView, QFileDialog, QHBoxLayout, QComboBox, QComboBox, QSizePolicy, QMenu
+    QAbstractItemView, QFileDialog, QHBoxLayout, QComboBox, QSizePolicy, QMenu
 )
 from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, Slot, QTimer
 
@@ -314,14 +314,18 @@ class AssemblyViewerWindow(QMainWindow):
             self.spinner_timer.start()
             # Add current file path to recent files
             export_path = self.file_path_combo.currentText()
+            selected_rows = self.assembly_table.selectionModel().selectedRows()
             self.update_recent_paths(export_path)
 
-            # "Exporting {file_path}"
-            self.status_label.setText(A_EXPORTING_KEYS[0])
+            # "Exporting {entity_count} {entity_type}(s) to {file_path}"
+            self.status_label.setText(A_EXPORTING_KEYS[0],
+                                      format_args={"entity_count": len(selected_rows),
+                                                   "entity_type": "IfcElementAssembly",
+                                                   "file_path": export_path})
             # start export
             self.entities_to_export = [
                 self.model.data(index, Qt.UserRole)
-                for index in self.assembly_table.selectionModel().selectedRows()
+                for index in selected_rows
                 if self.model.data(index, Qt.UserRole)
             ]
 
@@ -333,11 +337,9 @@ class AssemblyViewerWindow(QMainWindow):
             self.export_worker.finished.connect(self.export_finished)
             self.export_worker.start()
 
-    def update_export_progress(self, percent):
-        self.progress_bar.setValue(percent)
- 
     @Slot(int)
     def update_export_progress(self, progress):
+        # TODO: Display the progress somewhere (progress bar?)
         print(f"Export progress: {progress}")
         pass
 

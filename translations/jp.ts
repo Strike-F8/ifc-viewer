@@ -261,8 +261,12 @@ Please Wait...</source>
     </message>
     <message>
         <location filename="../strings.py" line="185"/>
+        <source>Loaded in {time}s</source>
+        <translation>読み込み時間: {time}s</translation>
+    </message>
+    <message>
         <source>Loaded in {time}</source>
-        <translation>読み込み時間: {time}</translation>
+        <translation type="vanished">読み込み時間: {time}</translation>
     </message>
     <message>
         <location filename="../strings.py" line="185"/>

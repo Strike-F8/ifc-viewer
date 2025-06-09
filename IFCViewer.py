@@ -104,7 +104,7 @@ class StatsPanel(QWidget):
             self.layout.addWidget(TLabel(STATS_PANEL_KEYS[2],
                                      self,
                                      context="Stats Panel",
-                                     format_args={"time": time_to_load}))
+                                     format_args={"time": round(time_to_load, 2)}))
 
         if entity_dict:
             self.layout.addWidget(TLabel(STATS_PANEL_KEYS[3],
