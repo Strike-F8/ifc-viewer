@@ -5,11 +5,6 @@ import subprocess
 import platform
 from _collections_abc import Iterable
 
-import os
-import sys
-import subprocess
-import platform
-
 def is_compiled():
     return "__compiled__" in globals()
 
@@ -139,25 +134,22 @@ def get_children(entity):
             children.extend([v for v in value if isinstance(v, ifcopenshell.entity_instance)])
     return children
 
-def get_children_recursive(entity):
-    children = []
+def get_children_recursive(entity, children=None):
+    if children is None:
+        children = []
 
-    for attr in entity.get_info().keys():
+    for attr, value in entity.get_info().items():
         if attr in ("id", "type", "Name", "Description", "GlobalId"):
-            continue
-        try:
-            value = getattr(entity, attr)
-        except AttributeError:
             continue
 
         if isinstance(value, ifcopenshell.entity_instance):
             children.append(value)
-            children.extend(get_children_recursive(value))
+            get_children_recursive(value, children)
         elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
             for v in value:
                 if isinstance(v, ifcopenshell.entity_instance):
                     children.append(v)
-                    children.extend(get_children_recursive(v))
+                    get_children_recursive(v, children)
 
     return children
 
