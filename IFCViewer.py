@@ -5,6 +5,7 @@ import ifcopenshell
 import time
 
 from exporter.assembly_viewer import AssemblyViewerWindow
+from exporter.exporter_view   import ExporterWindow
 from db                       import DBWorker, SqlEntityTableModel
 from options                  import OptionsDialog
 
@@ -259,9 +260,11 @@ class IfcViewer(QMainWindow):
 
         # A list functions triggered by buttons in the toolbar
         # Order must match the order of strings imported from strings.py
-        main_toolbar_actions = [self.open_ifc_file,
+        main_toolbar_actions = [
+            self.open_ifc_file,
             self.start_load_db_task,
-            self.show_assemblies_window,
+            self.show_assemblies_exporter,
+            self.show_phases_exporter,
             self.show_options_window
         ]
 
@@ -760,13 +763,25 @@ class IfcViewer(QMainWindow):
                 item.appendRow(child_item)
 
 # ==============================
-# Assembly exporter
+# Exporter
 # ==============================
 
-    def show_assemblies_window(self):
-        if not self.spinner_timer.isActive(): # If the application isn't currently loading or displaying an IFC file
-            self.assembly_viewer = AssemblyViewerWindow(title=os.path.basename(self.file_path), ifc_model=self.ifc_model)
-            self.assembly_viewer.show()
+    def show_exporter(self, export_type):
+        self.export_view = ExporterWindow(title=export_type+" Exporter",
+                                          ifc_model=self.ifc_model,
+                                          parent=self,
+                                          export_type=export_type)
+        self.export_view.show()
+
+    def show_assemblies_exporter(self):
+        #if not self.spinner_timer.isActive(): # If the application isn't currently loading or displaying an IFC file
+            #self.assembly_viewer = AssemblyViewerWindow(title=os.path.basename(self.file_path), ifc_model=self.ifc_model)
+            #self.assembly_viewer.show()
+
+        self.show_exporter("Assemblies")
+    
+    def show_phases_exporter(self):
+        self.show_exporter("Phases")
 
 # ==============================
 # Options dialog

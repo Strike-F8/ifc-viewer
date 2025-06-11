@@ -3,7 +3,10 @@ import sys
 import ifcopenshell
 import subprocess
 import platform
-from _collections_abc import Iterable
+
+from _collections_abc  import Iterable
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
 
 def is_compiled():
     return "__compiled__" in globals()
@@ -203,3 +206,29 @@ def check_references(model):
                             if add_to_model(child, model) == -1:
                                 break
                         print(f"{v.id()}: was missing so added to model\n+ {len(children)} children")
+
+# =====================
+# CONTEXT MENU
+# =====================
+
+def copy_step_line(self, entity):
+    QApplication.clipboard().setText(str(entity))
+
+def copy_step_id(self, entity):
+    QApplication.clipboard().setText('#' + str(entity.id()))
+
+def copy_guid(self, entity):
+    QApplication.clipboard().setText(str(entity.GlobalId))
+
+def copy_row_text(self, view, row):
+    model = view.model()
+    column_count = model.columnCount()
+    row_text = []
+
+    for col in range(column_count):
+        index = model.index(row, col)
+        text = model.data(index, Qt.DisplayRole)
+        if text:
+            row_text.append(str(text))
+
+    QApplication.clipboard().setText("\t".join(row_text))

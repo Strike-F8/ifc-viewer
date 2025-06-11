@@ -2,7 +2,7 @@ import ifcopenshell
 from PySide6.QtCore import QThread, Signal
 from .utils import *
 
-class ExportWorker(QThread):
+class AssemblyExportWorker(QThread):
     progress = Signal(int)
     finished = Signal(list)
 

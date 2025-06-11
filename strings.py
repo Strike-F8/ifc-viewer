@@ -8,12 +8,14 @@ MAIN_TOOLBAR_ACTION_KEYS = [
     "Open File",
     "Load Entities",
     "Assembly Exporter",
+    "Phases Exporter",
     "Options"
 ]
 MAIN_TOOLBAR_TOOLTIP_KEYS = [
     "Load a new IFC file",
     "Display the IFC file contents",
     "Export assemblies to a new IFC file",
+    "Export phases to a new IFC file",
     "Open the options window"
 ]
 
@@ -23,12 +25,14 @@ def mark_toolbar_translations():
     # Toolbar actions
     q.translate("Main Toolbar", "Open File")
     q.translate("Main Toolbar", "Load Entities")
+    q.translate("Main Toolbar", "Phases Exporter")
     q.translate("Main Toolbar", "Assembly Exporter")
     q.translate("Main Toolbar", "Options")
 
     # Toolbar Tooltips
     q.translate("Main Toolbar", "Load a new IFC file")
     q.translate("Main Toolbar", "Display the IFC file contents")
+    q.translate("Main Toolbar", "Export phases to a new IFC File")
     q.translate("Main Toolbar", "Export assemblies to a new IFC file")
     q.translate("Main Toolbar", "Open the options window")
     

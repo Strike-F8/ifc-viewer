@@ -17,38 +17,43 @@ from strings import (
     A_EXPORT_BUTTON_KEY, CONTEXT_MENU_ACTION_KEYS, A_EXPORTING_KEYS, A_EXPORTER_VERSION_LABEL_KEY
 )
 
-from .export_worker import ExportWorker
-from .utils import open_new_ifc_viewer
-from export_utils import *
+from .export_worker import AssemblyExportWorker, PhaseExportWorker
+from .utils import *
+from .export_utils import *
 from options import CONFIG_PATH
 
 class ExporterWindow(QMainWindow):
-    def __init__(self, ifc_model, title=None, parent=None, export_type="Assembly"):
+    def __init__(self, ifc_model, title=None, parent=None, export_type="Assemblies"):
         super().__init__(parent)
 
         self.resize(600, 600)
 
         self.ifc_model = ifc_model
-        central_widget = QWidget()
-        layout = QVBoxLayout(central_widget)
+        main_exporter_widget = QWidget()
+        main_exporter_layout = QVBoxLayout(main_exporter_widget)
+        self.export_type = export_type
 
-        # "Select the assemblies to be exported"
+        # "Select the assemblies to be exported" # TODO: make sure this displays the correct type
         self.status_label = TLabel(A_STATUS_LABEL_KEY, context="Exporter Status Label")
         self.status_label.setWordWrap(True)
 
-        self.add_assembly_export_button()
+        self.add_export_button()
         self.add_file_layout()
 
-        layout.addLayout(self.file_layout)
+        main_exporter_layout.addLayout(self.file_layout)
         self.add_settings()
-        layout.addLayout(self.settings_layout)
-        layout.addWidget(self.status_label)
-        layout.addWidget(self.assembly_export_button)
+        main_exporter_layout.addLayout(self.settings_layout)
+        main_exporter_layout.addWidget(self.status_label)
+        main_exporter_layout.addWidget(self.export_button)
 
         # Table View
-        self.assembly_table = QTableView()
-        self.model = ExporterTableModel(assemblies=self.find_assemblies())
-        self.assembly_table.setModel(self.model)
+        self.main_table = QTableView()
+        if export_type == "Assemblies":
+            self.model = AssemblyTableModel(objects=find_assemblies(self.ifc_model))
+        if export_type == "Phases":
+            self.model = PhaseTableModel(objects=find_phases(self.ifc_model))
+
+        self.main_table.setModel(self.model)
 
         self.title = title
         if self.title:
@@ -56,18 +61,18 @@ class ExporterWindow(QMainWindow):
         else:
             self.setWindowTitle("Exporter")
 
-        self.assembly_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.assembly_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.assembly_table.setSortingEnabled(True)
-        self.assembly_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.assembly_table.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.assembly_table.customContextMenuRequested.connect(lambda pos, v=self.assembly_table: self.show_context_menu(pos, v))
+        self.main_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.main_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.main_table.setSortingEnabled(True)
+        self.main_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.main_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.main_table.customContextMenuRequested.connect(lambda pos, v=self.main_table: self.show_context_menu(pos, v))
 
         for i in range(4):
-            self.assembly_table.setColumnWidth(i, 150)
+            self.main_table.setColumnWidth(i, 150)
 
-        layout.addWidget(self.assembly_table)
-        self.setCentralWidget(central_widget)
+        main_exporter_layout.addWidget(self.main_table)
+        self.setCentralWidget(main_exporter_widget)
 
         # Loading spinner
         self.spinner_frames = ["|", "/", "-", "\\"]
@@ -88,10 +93,10 @@ class ExporterWindow(QMainWindow):
                 return ["IFC-Exporter.ifc"]
         return ["IFC-Exporter.ifc"]
 
-    def add_assembly_export_button(self):
+    def add_export_button(self):
         # "Export"
-        self.assembly_export_button = TPushButton(A_EXPORT_BUTTON_KEY, self, context="Output Path Selector")
-        self.assembly_export_button.clicked.connect(self.export_button_clicked)
+        self.export_button = TPushButton(A_EXPORT_BUTTON_KEY, self, context="Output Path Selector")
+        self.export_button.clicked.connect(self.export_button_clicked)
 
     def add_file_layout(self):
         self.recent_paths = self.load_recent_paths()
@@ -218,10 +223,10 @@ class ExporterWindow(QMainWindow):
 
         # A list of functions triggered by the buttons in the context menu
         context_menu_actions = [
-            self.copy_step_line,
-            self.copy_step_id,
-            self.copy_guid,
-            self.copy_row_text
+            copy_step_line,
+            copy_step_id,
+            copy_guid,
+            copy_row_text
         ]
 
         translator_context = "Entity Views Context Menu"
@@ -244,40 +249,18 @@ class ExporterWindow(QMainWindow):
         # Show the context menu
         menu.exec(view.viewport().mapToGlobal(position))
         
-    def copy_step_line(self, entity):
-        QApplication.clipboard().setText(str(entity))
-
-    def copy_step_id(self, entity):
-        QApplication.clipboard().setText('#' + str(entity.id()))
-
-    def copy_guid(self, entity):
-        QApplication.clipboard().setText(str(entity.GlobalId))
-
-    def copy_row_text(self, view, row):
-        model = view.model()
-        column_count = model.columnCount()
-        row_text = []
-
-        for col in range(column_count):
-            index = model.index(row, col)
-            text = model.data(index, Qt.DisplayRole)
-            if text:
-                row_text.append(str(text))
-
-        QApplication.clipboard().setText("\t".join(row_text))
-
     def export_button_clicked(self):
         if not self.spinner_timer.isActive():
             self.spinner_timer.start()
             # Add current file path to recent files
             export_path = self.file_path_combo.currentText()
-            selected_rows = self.assembly_table.selectionModel().selectedRows()
+            selected_rows = self.main_table.selectionModel().selectedRows()
             self.update_recent_paths(export_path)
 
             # "Exporting {entity_count} {entity_type}(s) to {file_path}"
             self.status_label.setText(A_EXPORTING_KEYS[0],
                                       format_args={"entity_count": len(selected_rows),
-                                                   "entity_type": "IfcElementAssembly", # TODO: Display the user provided type
+                                                   "entity_type": self.export_type, # TODO: Display the user provided type
                                                    "file_path": export_path})
             # start export
             self.entities_to_export = [
@@ -286,7 +269,7 @@ class ExporterWindow(QMainWindow):
                 if self.model.data(index, Qt.UserRole)
             ]
 
-            self.export_worker = ExportWorker(self.entities_to_export, export_path,
+            self.export_worker = AssemblyExportWorker(self.entities_to_export, export_path,
                                         self.ifc_model, self.grid_toggle_checkbox.isChecked(),
                                         self.preserve_id_toggle_checkbox.isChecked())
 
@@ -314,7 +297,6 @@ class ExporterWindow(QMainWindow):
                                             # Only update the spinner
         self.current_frame += 1
  
-    
     @Slot(list)
     def export_finished(self, results):
         # Optionally, display the selected assemblies in a graph
