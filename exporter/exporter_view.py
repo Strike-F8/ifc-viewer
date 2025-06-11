@@ -269,7 +269,12 @@ class ExporterWindow(QMainWindow):
                 if self.model.data(index, Qt.UserRole)
             ]
 
-            self.export_worker = AssemblyExportWorker(self.entities_to_export, export_path,
+            if self.export_type == "Assemblies":
+                self.export_worker = AssemblyExportWorker(self.entities_to_export, export_path,
+                                        self.ifc_model, self.grid_toggle_checkbox.isChecked(),
+                                        self.preserve_id_toggle_checkbox.isChecked())
+            elif self.export_type == "Phases":
+                self.export_worker = PhaseExportWorker(self.entities_to_export, export_path,
                                         self.ifc_model, self.grid_toggle_checkbox.isChecked(),
                                         self.preserve_id_toggle_checkbox.isChecked())
 

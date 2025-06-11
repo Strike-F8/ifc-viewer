@@ -17,7 +17,7 @@ from strings import (
     A_EXPORT_BUTTON_KEY, CONTEXT_MENU_ACTION_KEYS, A_EXPORTING_KEYS, A_EXPORTER_VERSION_LABEL_KEY
 )
 
-from .export_worker import ExportWorker
+from .export_worker import AssemblyExportWorker
 from .utils import open_new_ifc_viewer
 
 def is_iterable(obj):
@@ -332,7 +332,7 @@ class AssemblyViewerWindow(QMainWindow):
                 if self.model.data(index, Qt.UserRole)
             ]
 
-            self.export_worker = ExportWorker(self.entities_to_export, export_path,
+            self.export_worker = AssemblyExportWorker(self.entities_to_export, export_path,
                                         self.ifc_model, self.grid_toggle_checkbox.isChecked(),
                                         self.preserve_id_toggle_checkbox.isChecked())
 
