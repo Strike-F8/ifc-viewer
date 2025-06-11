@@ -45,8 +45,9 @@ class AssemblyExportWorker(QThread):
             # Find the objects that make up the current assembly 
             rel_agg = find_ifc_rel_aggregates(assembly)
 
-            add_to_model(rel_agg, self.output_model, self.preserve_ids)
-            assembly_objects.extend(find_assembly_objects(rel_agg))
+            if rel_agg:
+                add_to_model(rel_agg, self.output_model, self.preserve_ids)
+                assembly_objects.extend(find_assembly_objects(rel_agg))
 
         for object in assembly_objects:
             # Get the materials for each object
@@ -140,9 +141,14 @@ class PhaseExportWorker(QThread):
             
             # TODO: Different logic if the phase is not a layer
                     
+        relation_cache = [] # Keep track of relations that were already added so we don't add them again
         for object in phase_objects:
             # Get the materials for each object
-            add_material(object, phase_objects, self.output_model, self.preserve_ids)
+            materials = add_material(object, phase_objects, self.output_model, self.preserve_ids)
+            if materials[1] not in relation_cache:
+                relation_cache.append(materials[1])
+                add_list_to_model(materials, self.output_model, self.preserve_ids)
+                
             # Get the voids\opening elements for each object
             rel_voids = find_rel_voids_elements(object)
             add_list_to_model(rel_voids, self.output_model, self.preserve_ids)
@@ -155,6 +161,12 @@ class PhaseExportWorker(QThread):
             
             # Get the IfcRelDefinesByProperties of each object
             add_ifc_rel_defines_by_properties(object, phase_objects, self.output_model, self.preserve_ids)
+
+            # Get the IfcRelAggregates of each object
+            rel_agg = p_find_ifc_rel_aggregates(object)
+            if rel_agg not in relation_cache:
+                relation_cache.append(rel_agg)
+                clone_relation_with_filtered_targets(rel_agg, "RelatedObjects", phase_objects, self.output_model, self.preserve_ids)
 
         # 4. Output to a new IFC file
         self.export_assemblies_to_file()
@@ -174,6 +186,13 @@ class PhaseExportWorker(QThread):
 
         for type in entity_types:
             add_list_to_model(find_related_entities(type, self.ifc_model), self.output_model, self.preserve_ids)
+        
+        # Add IfcRelContainedInSpatialStructure for IfcElementAssembly
+        assemblies = self.output_model.by_type("IfcElementAssembly")
+        for assembly in assemblies:
+            original = self.ifc_model.by_guid(assembly.GlobalId)
+            ifc_rel_contained_in_spatial_structure = original.ContainedInStructure[0]
+            clone_relation_with_filtered_targets(ifc_rel_contained_in_spatial_structure, "RelatedElements", assemblies, self.output_model, self.preserve_ids)
         
         # Not every necessary reference is included when preserving original IDs so go through the model
         # checking if there are missing references

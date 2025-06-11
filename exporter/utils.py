@@ -81,6 +81,13 @@ def find_ifc_rel_aggregates(assembly):
     could_not_find("IfcRelAggregates", assembly)
     return None
 
+def p_find_ifc_rel_aggregates(product):
+    for relation in product.Decomposes:
+        if relation.is_a("IfcRelAggregates"):
+            return relation
+    could_not_find("IfcRelAggregates", product)
+    return None
+
 # Return the objects that make up a given assembly as a list
 def find_assembly_objects(rel_agg):
     if rel_agg:
@@ -118,7 +125,7 @@ def add_material(entity, allowed_entities, model, preserve_id=False):
 
             material = assoc.RelatingMaterial
             if material:
-                return material
+                return [material, assoc]
     could_not_find("IfcMaterial", entity)
     return None
 
