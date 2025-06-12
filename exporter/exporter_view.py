@@ -33,8 +33,8 @@ class ExporterWindow(QMainWindow):
         main_exporter_layout = QVBoxLayout(main_exporter_widget)
         self.export_type = export_type
 
-        # "Select the assemblies to be exported" # TODO: make sure this displays the correct type
-        self.status_label = TLabel(A_STATUS_LABEL_KEY, context="Exporter Status Label")
+        # Select the {type} to be exported
+        self.status_label = TLabel(A_STATUS_LABEL_KEY, context="Exporter Status Label", format_args={"type": export_type})
         self.status_label.setWordWrap(True)
 
         self.add_export_button()

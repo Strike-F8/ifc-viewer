@@ -4,7 +4,6 @@ import json
 import ifcopenshell
 import time
 
-from exporter.assembly_viewer import AssemblyViewerWindow
 from exporter.exporter_view   import ExporterWindow
 from db                       import DBWorker, SqlEntityTableModel
 from options                  import OptionsDialog
@@ -767,7 +766,7 @@ class IfcViewer(QMainWindow):
 # ==============================
 
     def show_exporter(self, export_type):
-        self.export_view = ExporterWindow(title=export_type+" Exporter",
+        self.export_view = ExporterWindow(title=os.path.basename(self.file_path),
                                           ifc_model=self.ifc_model,
                                           parent=self,
                                           export_type=export_type)

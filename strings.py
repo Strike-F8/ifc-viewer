@@ -8,7 +8,7 @@ MAIN_TOOLBAR_ACTION_KEYS = [
     "Open File",
     "Load Entities",
     "Assembly Exporter",
-    "Phases Exporter",
+    "Phase Exporter",
     "Options"
 ]
 MAIN_TOOLBAR_TOOLTIP_KEYS = [
@@ -25,8 +25,8 @@ def mark_toolbar_translations():
     # Toolbar actions
     q.translate("Main Toolbar", "Open File")
     q.translate("Main Toolbar", "Load Entities")
-    q.translate("Main Toolbar", "Phases Exporter")
     q.translate("Main Toolbar", "Assembly Exporter")
+    q.translate("Main Toolbar", "Phase Exporter")
     q.translate("Main Toolbar", "Options")
 
     # Toolbar Tooltips
@@ -127,16 +127,17 @@ def mark_row_count_key():
 # STATUS LABEL
 # ==============================
 
-A_STATUS_LABEL_KEY = "Select the assemblies to be exported"
+A_STATUS_LABEL_KEY = "Select the {type} to be exported"
+
 A_EXPORTING_KEYS = [
     "Exporting {entity_count} {entity_type}(s) to {file_path}",
     "Exported {entity_count} {entity_type}(s) to {file_path}"
 ]
 
 def mark_a_status_label_key():
-    q.translate("Assembly Status Label", "Select the assemblies to be exported")
-    q.translate("Assembly Status Label", "Exporting {entity_count} {entity_type}(s) to {file_path}")
-    q.translate("Assembly Status Label", "Exported {entity_count} {entity_type}(s) to {file_path}")
+    q.translate("Exporter Status Label", "Select the {type} to be exported")
+    q.translate("Exporter Status Label", "Exporting {entity_count} {entity_type}(s) to {file_path}")
+    q.translate("Exporter Status Label", "Exported {entity_count} {entity_type}(s) to {file_path}")
 
 # ==============================
 # OUTPUT PATH SELECTOR

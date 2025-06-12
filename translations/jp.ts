@@ -4,40 +4,41 @@
 <context>
     <name>Assembly Status Label</name>
     <message>
-        <location filename="../strings.py" line="134"/>
         <source>Select the assemblies to be exported</source>
-        <translation>出力するアッセンブリを選択してください</translation>
+        <translation type="vanished">出力するアッセンブリを選択してください</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="135"/>
+        <source>Select the {type} to be exported</source>
+        <translation type="vanished">出力する「{type}」を選択してください</translation>
+    </message>
+    <message>
         <source>Exporting {entity_count} {entity_type}(s) to {file_path}</source>
-        <translation>{entity_type}を{entity_count}項目{file_path}に出力中</translation>
+        <translation type="vanished">{entity_type}を{entity_count}項目{file_path}に出力中</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="141"/>
         <source>Exported {entity_count} {entity_type}(s) to {file_path}</source>
-        <translation>{entity_type}を{entity_count}項目{file_path}に出力しました</translation>
+        <translation type="vanished">{entity_type}を{entity_count}項目{file_path}に出力しました</translation>
     </message>
 </context>
 <context>
     <name>Entity Views Context Menu</name>
     <message>
-        <location filename="../strings.py" line="50"/>
+        <location filename="../strings.py" line="54"/>
         <source>Copy Step Line #{id}</source>
         <translation>Step Line #{id} のコピー</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="51"/>
+        <location filename="../strings.py" line="55"/>
         <source>Copy Step ID #{id}</source>
         <translation>Step ID #{id} のコピー</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="52"/>
+        <location filename="../strings.py" line="56"/>
         <source>Copy GUID {guid}</source>
         <translation>GUID {guid} のコピー</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="58"/>
+        <location filename="../strings.py" line="62"/>
         <source>Copy This Row</source>
         <translation>この行のコピー</translation>
     </message>
@@ -64,40 +65,58 @@
 <context>
     <name>Exporter Settings</name>
     <message>
-        <location filename="../strings.py" line="165"/>
+        <location filename="../strings.py" line="170"/>
         <source>Draw Graph</source>
         <translation>グラフを描く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="166"/>
+        <location filename="../strings.py" line="171"/>
         <source>Export Grids</source>
         <translation>グリッドを出力</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="167"/>
+        <location filename="../strings.py" line="172"/>
         <source>Preserve original STEP IDs (BUGGY!)</source>
         <translation>元のファイルのSTEP IDを保存する（この機能は未完成！）</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="168"/>
+        <location filename="../strings.py" line="173"/>
         <source>Open Exported File</source>
         <translation>出力したファイルを開く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="174"/>
+        <location filename="../strings.py" line="179"/>
         <source>IFC Version: </source>
         <translation>IFCバージョン： </translation>
     </message>
 </context>
 <context>
+    <name>Exporter Status Label</name>
+    <message>
+        <location filename="../strings.py" line="139"/>
+        <source>Select the {type} to be exported</source>
+        <translation>出力する「{type}」を選択してください</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="140"/>
+        <source>Exporting {entity_count} {entity_type}(s) to {file_path}</source>
+        <translation>{entity_type}を{entity_count}項目{file_path}に出力中</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="146"/>
+        <source>Exported {entity_count} {entity_type}(s) to {file_path}</source>
+        <translation>{entity_type}を{entity_count}項目{file_path}に出力しました</translation>
+    </message>
+</context>
+<context>
     <name>Filter Widget</name>
     <message>
-        <location filename="../strings.py" line="106"/>
+        <location filename="../strings.py" line="110"/>
         <source>Filter Entities...</source>
         <translation>エンティティの絞り込み…</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="112"/>
+        <location filename="../strings.py" line="116"/>
         <source>Filter</source>
         <translation>絞り込む</translation>
     </message>
@@ -105,22 +124,22 @@
 <context>
     <name>Main File Menu</name>
     <message>
-        <location filename="../strings.py" line="70"/>
+        <location filename="../strings.py" line="74"/>
         <source>File</source>
         <translation>ファイル</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="71"/>
+        <location filename="../strings.py" line="75"/>
         <source>Open</source>
         <translation>開く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="72"/>
+        <location filename="../strings.py" line="76"/>
         <source>New Window</source>
         <translation>新しいウインドウを開く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="78"/>
+        <location filename="../strings.py" line="82"/>
         <source>Recent Files</source>
         <translation>最近使ったファイル</translation>
     </message>
@@ -128,34 +147,34 @@
 <context>
     <name>Main Status Label</name>
     <message>
-        <location filename="../strings.py" line="89"/>
+        <location filename="../strings.py" line="93"/>
         <source>＜ーChoose an IFC file to open</source>
         <translation>＜ーIFCファイルの選択</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="90"/>
+        <location filename="../strings.py" line="94"/>
         <source>Now loading: {file_path}</source>
         <translation>{file_path}を読み込み中</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="91"/>
+        <location filename="../strings.py" line="95"/>
         <source>Now loading IFC model into view</source>
         <translation>IFCモデルをビューにロード中</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="92"/>
+        <location filename="../strings.py" line="96"/>
         <source>Finished loading {file_path}</source>
         <translation>{file_path}はロードが終わりました</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="93"/>
+        <location filename="../strings.py" line="97"/>
         <source>Loaded {file_path}
 Press the &quot;Load Entities&quot; button to view the contents</source>
         <translation>{file_path}を読み込みました
 ビューにロードするには「エンティティの読み込み」ボタンを押してください</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="99"/>
+        <location filename="../strings.py" line="103"/>
         <source>Selected entity #{id}</source>
         <translation>エンティティ #{id}を選択しています</translation>
     </message>
@@ -163,42 +182,56 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
 <context>
     <name>Main Toolbar</name>
     <message>
-        <location filename="../strings.py" line="25"/>
+        <location filename="../strings.py" line="27"/>
         <source>Open File</source>
         <translation>ファイルを開く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="26"/>
+        <location filename="../strings.py" line="28"/>
         <source>Load Entities</source>
         <translation>エンティティの読み込み</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="27"/>
+        <source>Phases Exporter</source>
+        <translation type="vanished">フェーズの出力</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="30"/>
+        <source>Phase Exporter</source>
+        <translation>フェーズの出力</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="29"/>
         <source>Assembly Exporter</source>
         <translation>アッセンブリーの出力</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="30"/>
+        <location filename="../strings.py" line="33"/>
         <source>Options</source>
         <translation>設定</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="31"/>
+        <location filename="../strings.py" line="34"/>
         <source>Load a new IFC file</source>
         <translation>新しいIFCファイルを開く</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="32"/>
+        <location filename="../strings.py" line="35"/>
         <source>Display the IFC file contents</source>
         <translation>IFCファイルのエンティティを表示する</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="33"/>
+        <location filename="../strings.py" line="36"/>
+        <source>Export phases to a new IFC File</source>
+        <translation>フェーズを新しいIFCファイルに出力する</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="37"/>
         <source>Export assemblies to a new IFC file</source>
         <translation>アッセンブリーを新しいIFCファイルに出力する</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="39"/>
+        <location filename="../strings.py" line="43"/>
         <source>Open the options window</source>
         <translation>設定画面を開く</translation>
     </message>
@@ -213,17 +246,17 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
 <context>
     <name>Output Path Selector</name>
     <message>
-        <location filename="../strings.py" line="147"/>
+        <location filename="../strings.py" line="152"/>
         <source>Output Path:</source>
         <translation>出力パス：</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="148"/>
+        <location filename="../strings.py" line="153"/>
         <source>Browse...</source>
         <translation>…</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="154"/>
+        <location filename="../strings.py" line="159"/>
         <source>Export</source>
         <translation>出力する</translation>
     </message>
@@ -231,12 +264,12 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
 <context>
     <name>Row Count</name>
     <message>
-        <location filename="../strings.py" line="117"/>
+        <location filename="../strings.py" line="121"/>
         <source>{items} rows</source>
         <translation>{items}項目</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="126"/>
+        <location filename="../strings.py" line="130"/>
         <source>Building index for filtering. Please Wait...</source>
         <translation>フィルタリング用のインデックスを作成しています。しばらくお待ちください…</translation>
     </message>
@@ -250,17 +283,17 @@ Please Wait...</source>
 <context>
     <name>Stats Panel</name>
     <message>
-        <location filename="../strings.py" line="183"/>
+        <location filename="../strings.py" line="188"/>
         <source>IFC Version: {version}</source>
         <translation>IFCバージョン: {version}</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="184"/>
+        <location filename="../strings.py" line="189"/>
         <source>Entity Count: {count}</source>
         <translation>エンティティの数： {count}</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="185"/>
+        <location filename="../strings.py" line="190"/>
         <source>Loaded in {time}s</source>
         <translation>読み込み時間: {time}s</translation>
     </message>
@@ -269,7 +302,7 @@ Please Wait...</source>
         <translation type="vanished">読み込み時間: {time}</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="185"/>
+        <location filename="../strings.py" line="190"/>
         <source>Total Entity Types: {count}</source>
         <translation>エンティティの種類の数: {count}</translation>
     </message>
