@@ -1,15 +1,12 @@
 import os
 import json
-import ifcopenshell
-
-from collections import defaultdict
-from collections.abc import Iterable
 
 from PySide6.QtWidgets import (
-    QTableView, QHeaderView, QMainWindow, QWidget, QVBoxLayout, QApplication, QMessageBox,
+    QTableView, QHeaderView, QMainWindow, QWidget, QVBoxLayout, QMessageBox,
     QAbstractItemView, QFileDialog, QHBoxLayout, QComboBox, QSizePolicy, QMenu
 )
-from PySide6.QtCore import Qt, QModelIndex, QAbstractTableModel, Slot, QTimer
+from PySide6.QtCore import Qt, Slot, QTimer
+from PySide6.QtGui import QFont
 
 from ui import TLabel, TPushButton, TCheckBox, TAction
 from strings import (
@@ -26,7 +23,7 @@ class ExporterWindow(QMainWindow):
     def __init__(self, ifc_model, title=None, parent=None, export_type="Assemblies"):
         super().__init__(parent)
 
-        self.resize(600, 600)
+        self.resize(800, 600)
 
         self.ifc_model = ifc_model
         main_exporter_widget = QWidget()
@@ -51,7 +48,11 @@ class ExporterWindow(QMainWindow):
         if export_type == "Assemblies":
             self.model = AssemblyTableModel(objects=find_assemblies(self.ifc_model))
         if export_type == "Phases":
-            self.model = PhaseTableModel(objects=find_phases(self.ifc_model))
+            phases = find_phases(self.ifc_model)
+            if not isinstance(phases, str):
+                self.model = PhaseTableModel(objects=phases)
+            else:
+                QMessageBox.critical(self, "Error", "No phases found!")
 
         self.main_table.setModel(self.model)
 
@@ -126,7 +127,7 @@ class ExporterWindow(QMainWindow):
         self.add_version_selector()
 
     def add_toggles(self):
-        # "Draw Graph"TODO: Improve graph support before enabling again
+        # "Draw Graph" TODO: Improve graph support before enabling again
         # self.graph_toggle_checkbox = TCheckBox(A_EXPORTER_CHECKBOX_KEYS[0], self, context="Exporter Settings")
         # self.graph_toggle_checkbox.setChecked(False)
 
@@ -168,6 +169,11 @@ class ExporterWindow(QMainWindow):
         self.version_combo.addItems(self.supported_schemas)
         self.version_combo.setCurrentText(self.ifc_model.schema)
         self.settings_layout.addLayout(version_layout)
+
+        # Set the current IFC version to bold for easy identification
+        bold_font = QFont()
+        bold_font.setBold(True)
+        self.version_combo.setItemData(self.version_combo.currentIndex(), bold_font, Qt.FontRole)
 
     def browse_export_path(self):
         path, _ = QFileDialog.getSaveFileName(

@@ -88,6 +88,15 @@ def get_assembly_mark(assembly):
 # =========================
 # PHASE UTILITIES
 # =========================
+PHASE_KEYWORDS = [
+    "phase",
+    "フェーズ",
+    "節",
+    "工区",
+    "phasing",
+    "section",
+    "new"
+]
 
 class PhaseTableModel(QAbstractTableModel):
     def __init__(self, objects, parent=None):
@@ -147,8 +156,7 @@ def find_phases(model):
     if len(ifc_presentation_layer_assignments) > 0:
         phases = []
         for layer in ifc_presentation_layer_assignments:
-            name = layer.Name.lower()
-            if "grid" not in name: # Grids are also sometimes output as layers so we remove them
+            if is_phase_layer(layer): # Check if this layer is a phase
                 phases.append(layer)
         if len(phases) > 0:
             # dictionary of phases
@@ -188,6 +196,10 @@ def get_phase_by_layer(ifc_presentation_layer_assignment):
     print(f"Printing the attributes of {ifc_presentation_layer_assignment.id()}")
     for attribute in attributes:
         print(attribute)
+
+def is_phase_layer(layer):
+    name = layer.Name.lower()
+    return any(keyword in name for keyword in PHASE_KEYWORDS)
 
 # =========================
 # GENERAL UTILITIES
