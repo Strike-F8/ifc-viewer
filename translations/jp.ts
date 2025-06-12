@@ -113,7 +113,7 @@
     <message>
         <location filename="../exporter/exporter_view.py" line="55"/>
         <source>No phases found!</source>
-        <translation type="unfinished"></translation>
+        <translation>フェーズは見つかれませんでした！</translation>
     </message>
 </context>
 <context>
