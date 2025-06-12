@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Slot, QTimer
 from PySide6.QtGui import QFont
 
-from ui import TLabel, TPushButton, TCheckBox, TAction
+from tui import TLabel, TPushButton, TCheckBox, TAction
 from strings import (
     A_STATUS_LABEL_KEY, A_OUTPUT_PATH_LABEL_KEY, A_OUTPUT_BROWSE_KEY, A_EXPORTER_CHECKBOX_KEYS,
     A_EXPORT_BUTTON_KEY, CONTEXT_MENU_ACTION_KEYS, A_EXPORTING_KEYS, A_EXPORTER_VERSION_LABEL_KEY
@@ -52,7 +52,7 @@ class ExporterWindow(QMainWindow):
             if not isinstance(phases, str):
                 self.model = PhaseTableModel(objects=phases)
             else:
-                QMessageBox.critical(self, "Error", "No phases found!")
+                QMessageBox.critical(self, "Error", self.tr("No phases found!"))
 
         self.main_table.setModel(self.model)
 

@@ -1,7 +1,7 @@
 import os
 CONFIG_PATH = os.path.join(os.path.dirname(__file__),"config.json") # Save the recent files list
 
-from ui import language_manager
+from tui import language_manager
 
 from PySide6.QtWidgets import (
     QLabel, QVBoxLayout, QHBoxLayout,

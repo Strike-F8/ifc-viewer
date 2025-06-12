@@ -109,6 +109,14 @@
     </message>
 </context>
 <context>
+    <name>ExporterWindow</name>
+    <message>
+        <location filename="../exporter/exporter_view.py" line="55"/>
+        <source>No phases found!</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Filter Widget</name>
     <message>
         <location filename="../strings.py" line="110"/>
@@ -119,6 +127,19 @@
         <location filename="../strings.py" line="116"/>
         <source>Filter</source>
         <translation>絞り込む</translation>
+    </message>
+</context>
+<context>
+    <name>IfcViewer</name>
+    <message>
+        <location filename="../IFCViewer.py" line="359"/>
+        <source>{} not found!</source>
+        <translation>{}は見つかれませんでした！</translation>
+    </message>
+    <message>
+        <location filename="../IFCViewer.py" line="702"/>
+        <source>IFCViewer Options</source>
+        <translation>IFCViewerの設定</translation>
     </message>
 </context>
 <context>
