@@ -29,7 +29,7 @@ from strings import (
 )
 
 from options        import CONFIG_PATH
-from exporter.utils import open_new_ifc_viewer
+from exporter.utils import *
                                                 
 from ui import *
 
@@ -294,10 +294,10 @@ class IfcViewer(QMainWindow):
 
         # A list of functions triggered by the buttons in the context menu
         context_menu_actions = [
-            self.copy_step_line,
-            self.copy_step_id,
-            self.copy_guid,
-            self.copy_row_text
+            copy_step_line,
+            copy_step_id,
+            copy_guid,
+            copy_row_text
         ]
 
         translator_context = "Entity Views Context Menu"
@@ -320,28 +320,6 @@ class IfcViewer(QMainWindow):
         # Show the context menu
         menu.exec(view.viewport().mapToGlobal(position))
         
-    def copy_step_line(self, entity):
-        QApplication.clipboard().setText(str(entity))
-
-    def copy_step_id(self, entity):
-        QApplication.clipboard().setText('#' + str(entity.id()))
-
-    def copy_guid(self, entity):
-        QApplication.clipboard().setText(str(entity.GlobalId))
-
-    def copy_row_text(self, view, row):
-        model = view.model()
-        column_count = model.columnCount()
-        row_text = []
-
-        for col in range(column_count):
-            index = model.index(row, col)
-            text = model.data(index, Qt.DisplayRole)
-            if text:
-                row_text.append(str(text))
-
-        QApplication.clipboard().setText("\t".join(row_text))
-
     def stats_label_clicked(self, ifc_type):
         self.filter_bar.setText(ifc_type)
         self.apply_filter()

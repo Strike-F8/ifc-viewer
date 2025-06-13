@@ -218,16 +218,16 @@ def check_references(model):
 # CONTEXT MENU
 # =====================
 
-def copy_step_line(self, entity):
+def copy_step_line(entity):
     QApplication.clipboard().setText(str(entity))
 
-def copy_step_id(self, entity):
+def copy_step_id(entity):
     QApplication.clipboard().setText('#' + str(entity.id()))
 
-def copy_guid(self, entity):
+def copy_guid(entity):
     QApplication.clipboard().setText(str(entity.GlobalId))
 
-def copy_row_text(self, view, row):
+def copy_row_text(view, row):
     model = view.model()
     column_count = model.columnCount()
     row_text = []
