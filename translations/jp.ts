@@ -132,12 +132,12 @@
 <context>
     <name>IfcViewer</name>
     <message>
-        <location filename="../IFCViewer.py" line="359"/>
+        <location filename="../IFCViewer.py" line="337"/>
         <source>{} not found!</source>
         <translation>{}は見つかれませんでした！</translation>
     </message>
     <message>
-        <location filename="../IFCViewer.py" line="702"/>
+        <location filename="../IFCViewer.py" line="680"/>
         <source>IFCViewer Options</source>
         <translation>IFCViewerの設定</translation>
     </message>
@@ -242,14 +242,18 @@ Press the &quot;Load Entities&quot; button to view the contents</source>
         <translation>IFCファイルのエンティティを表示する</translation>
     </message>
     <message>
-        <location filename="../strings.py" line="36"/>
         <source>Export phases to a new IFC File</source>
-        <translation>フェーズを新しいIFCファイルに出力する</translation>
+        <translation type="vanished">フェーズを新しいIFCファイルに出力する</translation>
+    </message>
+    <message>
+        <location filename="../strings.py" line="36"/>
+        <source>Export assemblies to a new IFC file</source>
+        <translation>アッセンブリーを新しいIFCファイルに出力する</translation>
     </message>
     <message>
         <location filename="../strings.py" line="37"/>
-        <source>Export assemblies to a new IFC file</source>
-        <translation>アッセンブリーを新しいIFCファイルに出力する</translation>
+        <source>Export phases to a new IFC file</source>
+        <translation>フェーズを新しいIFCファイルに出力する</translation>
     </message>
     <message>
         <location filename="../strings.py" line="43"/>

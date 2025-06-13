@@ -32,8 +32,8 @@ def mark_toolbar_translations():
     # Toolbar Tooltips
     q.translate("Main Toolbar", "Load a new IFC file")
     q.translate("Main Toolbar", "Display the IFC file contents")
-    q.translate("Main Toolbar", "Export phases to a new IFC File")
     q.translate("Main Toolbar", "Export assemblies to a new IFC file")
+    q.translate("Main Toolbar", "Export phases to a new IFC file")
     q.translate("Main Toolbar", "Open the options window")
     
 # ==============================
