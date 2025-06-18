@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QToolBar, QMessageBox, QFileDialog, QMenu, QSplitter, QAbstractItemView, QHeaderView,
     QProgressBar, QStackedLayout, QSizePolicy, QDockWidget, QScrollArea
 )
-from PySide6.QtGui  import QAction, QStandardItemModel, QStandardItem, QFont, QFontDatabase, QEnterEvent, QMouseEvent
+from PySide6.QtGui  import QAction, QStandardItemModel, QStandardItem, QFont, QFontDatabase
 from PySide6.QtCore import Qt, QThread, Signal, Slot, QTimer, QTranslator
 from collections import defaultdict
 
@@ -35,7 +35,6 @@ from ui import *
 
 # TODO: Clearer labels for the main 3 views for ease of use
 
-       
 # This simple worker takes in a line from the main thread and executes it in the background
 # It is used to execute ifcopenshell.open(file)
 # Large files can take some time to open so open them in the background and show a spinner in the meantime
@@ -376,7 +375,7 @@ class IfcViewer(QMainWindow):
         # f"Finished loading {os.path.basename(self.file_path)}"
         self.status_label.setText(MAIN_STATUS_LABEL_KEYS[3], format_args={"file_path": os.path.basename(self.file_path)})
 
-        self.middle_model = SqlEntityTableModel(self.ifc_model, self.file_path, db_path=db_uri)
+        self.middle_model = SqlEntityTableModel(db_path=db_uri)
         self.middle_view.setModel(self.middle_model)
         self.middle_model.row_count_changed.connect(self.update_row_count)
         self.update_row_count()

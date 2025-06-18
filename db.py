@@ -134,13 +134,9 @@ class DBWorker(QThread):
 class SqlEntityTableModel(QAbstractTableModel):
     row_count_changed = Signal(int)
 
-    def __init__(self, ifc_model, file_path, db_path):
+    def __init__(self, db_path):
         super().__init__()
-        self.file_path = file_path # The file path of the ifc file
-        self.ifc_model = ifc_model # The ifc_model loaded into memory
-
-        self.db_uri = db_path
-        self.db = apsw.Connection(self.db_uri)
+        self.db = apsw.Connection(db_path)
 
         # Default filter
         self._filter = ""
