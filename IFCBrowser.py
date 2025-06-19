@@ -197,8 +197,7 @@ class IfcViewer(QMainWindow):
 
         stats_dock = QDockWidget("Stats")
         stats_dock.setWidget(scroll)
-        stats_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea | Qt.BottomDockWidgetArea | Qt.TopDockWidgetArea)
-        self.addDockWidget(Qt.BottomDockWidgetArea, stats_dock)
+        self.addDockWidget(Qt.RightDockWidgetArea, stats_dock)
         stats_dock.setFloating(False)
         stats_dock.setMinimumHeight(200)
         stats_dock.setMinimumWidth(300)
