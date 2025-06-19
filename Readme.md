@@ -1,4 +1,4 @@
-# IFC Viewer
+# IFC Browser
 PySide6 program for analyzing IFC files.  
 Uses ifcopenshell for all backend analysis and SQLite for displaying, filtering, and sorting entities in the main view.  
 
@@ -9,26 +9,27 @@ Extends Qt UI Classes by implementing automatic translation so translation logic
 #### ifcopenshell
 #### PySide6
 #### apsw
-#### networkx
+#### networkx (Only for the graph which is not currently used)
 
 ## Files
-For easier maintenance and readability, the program is split up into the following files.
-### IFCViewer.py
-This is the main view. It connects each part of the program but contains as little logic as possible.  
+For easier maintenance and readability, the program is split up into the following files.  
 
-### strings.py
-Contains all user-facing strings used in the program. They have been organized for easy translation as much as possible.
+### IFCBrowser.py
+This is the main view.  
 
-### assembly_viewer.py
-A new window that displays all assemblies contained in the IFC file.
-The user can select assemblies for export and view a graph showing the relationships
-between entities contained in those assemblies.
-However, assemblies always have a huge amount of relationships so the
-graph is almost always hard to read and not very useful so it is set to off by default.
-There are plans to improve this graph.
-There are also plans to generalize this window to export other types of entities.
+### translations/strings.py
+Contains all user-facing strings used in the program. They have been organized for easy translation as much as possible.  
 
-### ui.py
+### exporter/export_view.py
+A new window that displays all assemblies (or possibly other types of items) contained in the IFC file.
+The user can select assemblies for export and choose the export file path and various options for exporting.   
+
+### exporter/ifc_graph_viewer.py
+This file is not currently used for anything. It is supposed to show a graph illustrating the relationships between  
+the entities the user chooses for export but the graph is hard to read and not very useful.  
+At some point, I would like to make a proper graph.
+
+### tui.py
 Contains the classes that extend Qt's built in ui classes.
 The purpose of this is to provide classes that translate themselves
 upon receiving translation signals while maintaining the ability to
@@ -49,27 +50,27 @@ it should remain fairly useable.
 ### options.py
 An options dialog for changing various settings.  
 Currently, it only changes the language.  
-Changing the language emits a signal that classes in ui.py should
+Changing the language emits a signal that classes in tui.py should
 respond to by translating themselves.
 
 ### /translations
 This folder contains the .ts and .qm files for supporting translation.
 
 ### /fonts
-Contains a variable font that could possibly be used for animations or other fancy things but PySide6 doesn't seem to support that.
+Contains a variable font that could possibly be used for animations or other fancy things but Qt doesn't seem to support that(?).
 
 ### config.json
 The program generates a config.json file for keeping track of recently
 opened and exported IFC files between sessions.
 
 ## Install
-Download the release zip file and extract it. There are a large amount of necessary files within the archive but the actual executable is IFCViewer.exe. It should run without any setup.
+Download the release zip file and extract it. There are a large amount of necessary files within the archive but the actual executable is IFCBrowser.exe. It should run without any setup.
 
 ## Build
 Ensure all previously mentioned dependencies are installed in your python environment. To prevent long compile times and ballooning file sizes, create a fresh virtual environment.  
 ```
-conda create -n ifcviewer
-conda activate ifcviewer
+conda create -n ifcbrowser
+conda activate ifcbrowser
 ```  
 
 Install Python 3.12. ifcopenshell does not yet support 3.13.
@@ -79,15 +80,15 @@ conda install python=3.12
 ```
 Install dependencies
 ```
-pip install ifcopenshell networkx pyside6 apsw
+pip install ifcopenshell pyside6 apsw
 ```
-At this point, you should be set to run IFCViewer.py in your Python environment.
+At this point, you should be set to run IFCBrowser.py in your Python environment.
 To build, install nuitka
 ```
 pip install nuitka
 ```
 And build using this command
 ```
-nuitka --lto=yes --standalone --deployment --enable-plugin=pyside6 --include-data-files=translations/*.qm=translations/ --include-data-files=fonts/*.ttf=fonts/ --windows-console-mode=disable .\IFCViewer.py
+nuitka --lto=yes --standalone --deployment --enable-plugin=pyside6 --include-data-files=translations/*.qm=translations/ --include-data-files=fonts/*.ttf=fonts/ --windows-console-mode=disable .\IFCBrowser.py
 ```
 A fresh environment should create a .dist folder totalling to about 175 MB.
